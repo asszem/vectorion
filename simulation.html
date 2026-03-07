@@ -727,6 +727,57 @@
       <button class="editor-btn confirm" id="configStart">▶ START — PRESS SPACE</button>
     </div>
   </div>
+
+  <div id="gameOptionsScreen" class="setup-modal" style="display:none;">
+    <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:6px;">
+      <div class="overlay-title" style="text-align:left;margin-bottom:0;">GAME OPTIONS</div>
+      <div class="game-name-row">
+        <span class="game-name-display" id="optionsGameNameDisplay" title="Click to rename"></span>
+        <input class="game-name-input" id="optionsGameNameInput" type="text" maxlength="40" style="display:none;">
+        <button class="game-name-edit-btn" id="optionsGameNameEditBtn" title="Rename">✎</button>
+      </div>
+    </div>
+    <div style="font-size:0.6rem;color:var(--green-dim);margin-bottom:20px;letter-spacing:0.1em;text-align:left;">
+      Edit current session settings. Press RESUME to continue.
+    </div>
+
+    <div class="config-prop-list">
+      <div class="config-prop-row config-prop-row--divider">
+        <div class="config-prop-info">
+          <span class="config-prop-name" style="color:var(--green-dim);">ENTITIES</span>
+          <span class="config-prop-desc">Current number of active entities in the simulation.</span>
+        </div>
+        <div class="entity-input-wrap">
+          <div style="min-width:90px;text-align:center;color:var(--green);letter-spacing:0.2em;font-size:0.8rem;" id="optionsEntityCount">0</div>
+        </div>
+      </div>
+
+      <div class="config-prop-row">
+        <div class="config-prop-info">
+          <span class="config-prop-name" style="color:var(--green-dim);">SIM SPEED</span>
+          <span class="config-prop-desc">Tick delay in ms (lower = faster). Applies immediately.</span>
+        </div>
+        <div class="entity-input-wrap">
+          <button class="entity-count-btn" id="optionsSpeedMinus">−</button>
+          <input type="number" id="optionsSpeedInput" value="80" min="20" max="500" step="10">
+          <button class="entity-count-btn" id="optionsSpeedPlus">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toggle-row" style="margin-top:16px;">
+      <span class="toggle-label">DIAGONAL MOVEMENT:</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="optionsDiagonalToggle" checked>
+        <div class="toggle-track"><div class="toggle-thumb"></div></div>
+      </label>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;">
+      <button class="editor-btn confirm" id="optionsResume">▶ RESUME</button>
+      <button class="editor-btn" id="optionsExitToMenu">⏏ EXIT TO MAIN MENU</button>
+    </div>
+  </div>
 </div>
 
 <!-- BOTTOM BAR -->
@@ -1153,6 +1204,7 @@ function showMainMenu(){
   if(!hasActiveGame){try{const as=localStorage.getItem('vectorion_autosave');if(as){const d=JSON.parse(as);if(d.entities&&d.entities.length){btn.disabled=false;document.getElementById('continueSubtext').textContent=`autosave: ${d.gameName||'VECTORION'}`;}}}catch(e){}}
   document.getElementById('mainMenu').style.display='';
   document.getElementById('configScreen').style.display='none';
+  document.getElementById('gameOptionsScreen').style.display='none';
   overlay.classList.remove('hidden');
   entitiesSection.style.display='none';
 }
@@ -1168,11 +1220,50 @@ document.getElementById('gameNameEditBtn').addEventListener('click',startGameNam
 document.getElementById('gameNameInput').addEventListener('blur',commitGameNameEdit);
 document.getElementById('gameNameInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitGameNameEdit();}if(e.key==='Escape'){e.preventDefault();document.getElementById('gameNameInput').style.display='none';document.getElementById('gameNameDisplay').style.display='';}e.stopPropagation();});
 
-function showConfigScreen(){document.getElementById('mainMenu').style.display='none';document.getElementById('configScreen').style.display='';setGameNameDisplay(randomGameName());}
+function showConfigScreen(){document.getElementById('mainMenu').style.display='none';document.getElementById('gameOptionsScreen').style.display='none';document.getElementById('configScreen').style.display='';setGameNameDisplay(randomGameName());}
 
 function restart(){clearInterval(intervalId);intervalId=null;running=false;tick=0;totalCollisions=0;flashes.length=0;closeEntityEditor(false);updateStats();draw();showMainMenu();}
 
-function openOptions(){clearInterval(intervalId);intervalId=null;running=false;closeEntityEditor(false);updateStats();draw();showMainMenu();}
+function normalizeDirsForDiagonalMode(){
+  if(diagonalMode)return;
+  entities.forEach(e=>{
+    if(!e.dir)return;
+    if(e.dir.dx!==0&&e.dir.dy!==0){
+      const dirs=getDirSet().filter(d=>(d.dx===0||d.dy===0)&&!entityHitsWall(e,d));
+      if(dirs.length>0)e.dir=dirs[Math.floor(Math.random()*dirs.length)];
+    }
+  });
+}
+
+function showGameOptions(){
+  if(!hasActiveGame)return;
+  document.getElementById('mainMenu').style.display='none';
+  document.getElementById('configScreen').style.display='none';
+  document.getElementById('gameOptionsScreen').style.display='';
+  overlay.classList.remove('hidden');
+  entitiesSection.style.display='none';
+
+  document.getElementById('optionsEntityCount').textContent=String(entities.length);
+  document.getElementById('optionsSpeedInput').value=String(speed);
+  document.getElementById('optionsDiagonalToggle').checked=!!diagonalMode;
+  const disp=document.getElementById('optionsGameNameDisplay');
+  const inp=document.getElementById('optionsGameNameInput');
+  disp.textContent=currentGameName||'VECTORION';
+  if(inp.style.display!=='none')inp.value=currentGameName||'VECTORION';
+}
+
+function resumeFromOptions(){
+  if(!hasActiveGame)return;
+  overlay.classList.add('hidden');
+  entitiesSection.style.display='';
+  running=true;
+  clearInterval(intervalId);intervalId=setInterval(step,speed);
+  document.getElementById('statusDisplay').textContent='RUNNING';
+  document.getElementById('ctrlEsc').classList.remove('esc-active');
+  gameArea.focus();
+}
+
+function openOptions(){clearInterval(intervalId);intervalId=null;running=false;closeEntityEditor(false);updateStats();draw();showGameOptions();}
 
 function handleOpenOptions(e){if(entityEditor.classList.contains('visible'))return;if(!overlay.classList.contains('hidden'))return;e.preventDefault();openOptions();document.getElementById('ctrlEsc').classList.add('esc-active');}
 gameArea.addEventListener('keydown',e=>{if(e.code==='Escape'||e.key==='Escape')handleOpenOptions(e);});
@@ -1212,6 +1303,36 @@ wireSpinner('btnChangeMinus','changeCountInput','btnChangePlus',0,10,2);
 wireSpinner('btnWMinus','maxWInput','btnWPlus',1,8,4);
 wireSpinner('btnHMinus','maxHInput','btnHPlus',1,8,4);
 wireSpinner('btnMaxSpeedMinus','maxSpeedInput','btnMaxSpeedPlus',1,10,3);
+
+// Game options wiring
+function startOptionsNameEdit(){
+  const disp=document.getElementById('optionsGameNameDisplay');
+  const inp=document.getElementById('optionsGameNameInput');
+  inp.value=currentGameName||'VECTORION';
+  disp.style.display='none';inp.style.display='';
+  inp.focus();inp.select();
+}
+function commitOptionsNameEdit(){
+  const disp=document.getElementById('optionsGameNameDisplay');
+  const inp=document.getElementById('optionsGameNameInput');
+  const raw=inp.value.trim().toUpperCase();
+  if(raw.length>0)setGameNameDisplay(raw);
+  disp.textContent=currentGameName||'VECTORION';
+  inp.style.display='none';disp.style.display='';
+}
+document.getElementById('optionsGameNameDisplay').addEventListener('click',startOptionsNameEdit);
+document.getElementById('optionsGameNameEditBtn').addEventListener('click',startOptionsNameEdit);
+document.getElementById('optionsGameNameInput').addEventListener('blur',commitOptionsNameEdit);
+document.getElementById('optionsGameNameInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitOptionsNameEdit();}if(e.key==='Escape'){e.preventDefault();document.getElementById('optionsGameNameInput').style.display='none';document.getElementById('optionsGameNameDisplay').style.display='';}e.stopPropagation();});
+
+function setOptionsSpeed(val){const n=parseInt(val);if(!Number.isFinite(n))return;const clamped=Math.max(20,Math.min(500,n));document.getElementById('optionsSpeedInput').value=String(clamped);setSpeed(clamped);}
+document.getElementById('optionsSpeedMinus').addEventListener('click',()=>setOptionsSpeed((parseInt(document.getElementById('optionsSpeedInput').value)||speed)+20));
+document.getElementById('optionsSpeedPlus').addEventListener('click',()=>setOptionsSpeed((parseInt(document.getElementById('optionsSpeedInput').value)||speed)-20));
+document.getElementById('optionsSpeedInput').addEventListener('change',e=>setOptionsSpeed(e.target.value));
+
+document.getElementById('optionsDiagonalToggle').addEventListener('change',e=>{diagonalMode=!!e.target.checked;normalizeDirsForDiagonalMode();});
+document.getElementById('optionsResume').addEventListener('click',resumeFromOptions);
+document.getElementById('optionsExitToMenu').addEventListener('click',showMainMenu);
 
 document.getElementById('ctrlSpace').addEventListener('click',()=>toggleRunning());
 document.getElementById('ctrlEsc').addEventListener('click',()=>{openOptions();document.getElementById('ctrlEsc').classList.add('esc-active');});
