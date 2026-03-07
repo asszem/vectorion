@@ -596,7 +596,7 @@
 <div id="setupBackdrop" class="setup-backdrop">
   <div id="mainMenu" class="main-menu">
     <div class="main-menu-title">VECTORION</div>
-    <div class="main-menu-sub" style="color:#ffdd00;opacity:0.75;text-shadow:0 0 8px rgba(255,221,0,0.3);">v5.52</div>
+    <div class="main-menu-sub version-label" style="color:#ffdd00;opacity:0.75;text-shadow:0 0 8px rgba(255,221,0,0.3);"></div>
     <button class="menu-btn" id="menuContinue" disabled>
       <span class="menu-btn-icon">▶</span>
       <span class="menu-btn-text">CONTINUE GAME<span class="menu-btn-sub" id="continueSubtext">no active session</span></span>
@@ -796,7 +796,9 @@
   <div style="margin-left:auto;display:flex;gap:10px;align-items:center;">
     <button class="key" id="ctrlExport">EXPORT</button>
     <button class="key" id="ctrlImport">IMPORT</button>
-    <span style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:#ffdd00;opacity:0.75;letter-spacing:0.15em;text-shadow:0 0 6px rgba(255,221,0,0.3);">v5.52</span>
+    <div class="version-label" style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:#ffdd00;opacity:0.75;letter-spacing:0.15em;text-shadow:0 0
+     6px rgba(255,221,0,0.3);">
+  </div>
   </div>
 </div>
 
@@ -852,6 +854,11 @@
 </div>
 
 <script>
+  const currentVersion = "v6.00";
+  const versionElements = document.querySelectorAll('.version-label');
+  versionElements.forEach(el => {
+    el.textContent = currentVersion;
+  });
 const COLS = 100, ROWS = 100, TRAIL_LENGTH = 14;
 const CARDINAL_DIRS = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}];
 const ALL_8_DIRS = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0},{dx:-1,dy:-1},{dx:1,dy:-1},{dx:-1,dy:1},{dx:1,dy:1}];
