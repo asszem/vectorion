@@ -857,6 +857,8 @@ function entityHitsWall(e,dir) { return e.cells.some(({dx,dy})=>{const nx=e.x+dx
 function wallAxes(e,dir) { let hx=false,hy=false; e.cells.forEach(({dx,dy})=>{const nx=e.x+dx+dir.dx,ny=e.y+dy+dir.dy;if(nx<0||nx>=COLS)hx=true;if(ny<0||ny>=ROWS)hy=true;}); return {hitX:hx,hitY:hy}; }
 function bounceDir(dir,e) { const {hitX,hitY}=wallAxes(e,dir); let ndx=hitX?-dir.dx:dir.dx,ndy=hitY?-dir.dy:dir.dy; const dirs=getDirSet(); const ref=dirs.find(d=>d.dx===ndx&&d.dy===ndy); if(ref&&!entityHitsWall(e,ref))return ref; const avail=dirs.filter(d=>d!==dir&&!entityHitsWall(e,d)); return avail.length>0?avail[Math.floor(Math.random()*avail.length)]:dir; }
 function entitiesOverlap(ei,pi,ej,pj) { const s=new Set(); for(const {dx,dy} of ei.cells)s.add(`${pi.nx+dx},${pi.ny+dy}`); for(const {dx,dy} of ej.cells){if(s.has(`${pj.nx+dx},${pj.ny+dy}`))return true;} return false; }
+function pathPositions(e,finalNextEl){if(e.stopped)return [{nx:e.x,ny:e.y}];const start={nx:e.x,ny:e.y},end=finalNextEl,trail=e.speedTrail||[];return [start,...trail.map(t=>({nx:t.x,ny:t.y})),end];}
+function pathsOverlap(ei,pathI,ej,pathJ){const maxT=Math.max(pathI.length-1,pathJ.length-1);for(let t=0;t<=maxT;t++){const pi=pathI[Math.min(t,pathI.length-1)],pj=pathJ[Math.min(t,pathJ.length-1)];if(entitiesOverlap(ei,pi,ej,pj))return true;}return false;}
 function randomDir() { const dirs=getDirSet(); return dirs[Math.floor(Math.random()*dirs.length)]; }
 
 function makeEntities(typeCounts) {
@@ -988,12 +990,13 @@ function step() {
     return { nx: tmp.x, ny: tmp.y };
   });
 
-  // Phase 2: collision detection at final positions
+  // Phase 2: collision detection along entire path (start → target) when speed > 1
   const collided=new Set(),toDestroy=new Set(),toStop=new Set(),toResume=new Set(),toDevour=new Map(),toMutate=new Set();
   const eff=e=>e.movementProperty==='change'?e.changeTarget:e.movementProperty;
   for(let i=0;i<entities.length;i++){
     for(let j=i+1;j<entities.length;j++){
-      if(!entitiesOverlap(entities[i],finalNext[i],entities[j],finalNext[j]))continue;
+      const pathI=pathPositions(entities[i],finalNext[i]),pathJ=pathPositions(entities[j],finalNext[j]);
+      if(!pathsOverlap(entities[i],pathI,entities[j],pathJ))continue;
       const ei=entities[i],ej=entities[j],pi=eff(ei),pj=eff(ej);
       if(ei.movementProperty==='change')toMutate.add(i);
       if(ej.movementProperty==='change')toMutate.add(j);
@@ -1166,13 +1169,15 @@ function restart(){clearInterval(intervalId);intervalId=null;running=false;tick=
 
 function openOptions(){clearInterval(intervalId);intervalId=null;running=false;closeEntityEditor(false);updateStats();draw();showMainMenu();}
 
-// Capture-phase: handle ESC during game first so it always opens options (not consumed by focus/bubble order)
-window.addEventListener('keydown',e=>{
-  if(e.code!=='Escape')return;
+// Capture-phase on document: handle ESC during game so it always opens options (runs before any other handler)
+document.addEventListener('keydown',e=>{
+  const isEscape=e.code==='Escape'||e.key==='Escape';
+  if(!isEscape)return;
   const numberInputs=['destroyCountInput','bounceCountInput','stopCountInput','maxWInput','maxHInput','devourCountInput','changeCountInput'];
-  if(document.activeElement&&numberInputs.includes(document.activeElement.id))return;
+  const activeId=document.activeElement&&document.activeElement.id;
+  if(activeId&&numberInputs.includes(activeId))return;
   if(entityEditor.classList.contains('visible'))return;
-  if(overlay.classList.contains('hidden')){e.preventDefault();e.stopImmediatePropagation();openOptions();}
+  if(overlay.classList.contains('hidden')){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openOptions();}
 },true);
 
 window.addEventListener('keydown',e=>{
