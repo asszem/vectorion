@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VECTORION</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green: #00ff41;
+    --green-dim: #00a828;
+    --green-glow: rgba(0, 255, 65, 0.15);
+    --bg: #020d02;
+    --panel: #030f03;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-top: 44px;
+    padding-bottom: 36px;
+    box-sizing: border-box;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  header { flex-shrink: 0; }
+
+  h1 {
+    font-family: 'VT323', monospace;
+    font-size: 1.8rem;
+    letter-spacing: 0.2em;
+    text-shadow: 0 0 20px var(--green), 0 0 40px var(--green-dim);
+    white-space: nowrap;
+    line-height: 1;
+  }
+
+  @keyframes flicker {
+    0%,95%,97%,100% { opacity: 1; }
+    96% { opacity: 0.7; }
+    98% { opacity: 0.9; }
+  }
+
+  /* TOP BAR — fixed */
+  .top-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 1px solid rgba(0,168,40,0.25);
+    background: var(--bg);
+    z-index: 50;
+    gap: 8px;
+  }
+
+  /* BOTTOM BAR — fixed */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 0 16px;
+    border-top: 1px solid rgba(0,168,40,0.25);
+    background: var(--bg);
+    z-index: 50;
+  }
+
+  /* MIDDLE ROW */
+  .middle-row {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* LEFT: canvas column */
+  .left-col {
+    display: flex;
+    align-items: flex-start;
+    padding: 10px 8px 10px 12px;
+    flex-shrink: 0;
+    flex-grow: 0;
+    box-sizing: border-box;
+  }
+
+  /* Drag resize handle */
+  .resize-handle {
+    width: 5px;
+    flex-shrink: 0;
+    cursor: col-resize;
+    background: transparent;
+    position: relative;
+    z-index: 10;
+    transition: background 0.15s;
+  }
+  .resize-handle:hover, .resize-handle.dragging { background: rgba(0,255,65,0.18); }
+  .resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 1px; height: 40px;
+    background: var(--green-dim);
+    opacity: 0.5;
+  }
+  .resize-handle:hover::after, .resize-handle.dragging::after {
+    opacity: 1; background: var(--green); box-shadow: 0 0 6px var(--green);
+  }
+
+  /* RIGHT SIDEBAR */
+  .right-col {
+    flex: 1;
+    min-width: 0;
+    border-left: 1px solid rgba(0,168,40,0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #entityEditor {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    opacity: 0;
+    pointer-events: none;
+    max-height: 0;
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: opacity 0.2s, max-height 0.3s ease;
+  }
+  #entityEditor.visible { opacity: 1; pointer-events: all; max-height: 500px; }
+
+  .entities-section {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .editor-section {
+    padding: 10px 10px 0;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .game-area {
+    position: relative;
+    border: 1px solid var(--green-dim);
+    box-shadow: 0 0 20px var(--green-glow), inset 0 0 20px rgba(0,0,0,0.5);
+    background: var(--panel);
+    overflow: hidden;
+  }
+  .game-area::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,255,65,0.03) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  canvas { display: block; image-rendering: pixelated; }
+
+  /* SETUP MODAL */
+  .setup-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(2,13,2,0.92);
+    z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.3s;
+  }
+  .setup-backdrop.hidden { opacity: 0; pointer-events: none; }
+
+  .overlay-title {
+    font-family: 'VT323', monospace;
+    font-size: 2.5rem;
+    letter-spacing: 0.2em;
+    text-shadow: 0 0 10px var(--green);
+    margin-bottom: 16px;
+  }
+
+  .overlay-hint {
+    font-size: 0.75rem;
+    color: var(--green-dim);
+    letter-spacing: 0.2em;
+    animation: blink 1.2s step-end infinite;
+  }
+
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+  /* MAIN MENU */
+  .main-menu {
+    text-align: center;
+    border: 1px solid var(--green-dim);
+    padding: 40px 56px;
+    background: var(--panel);
+    box-shadow: 0 0 30px var(--green-glow);
+    min-width: 320px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .main-menu-title {
+    font-family: 'VT323', monospace;
+    font-size: 3rem;
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 18px var(--green), 0 0 40px var(--green-dim);
+    margin-bottom: 8px;
+    animation: flicker 6s infinite;
+  }
+  .main-menu-sub { font-size: 0.6rem; color: var(--green-dim); letter-spacing: 0.3em; margin-bottom: 28px; }
+
+  .menu-btn {
+    width: 100%;
+    background: none;
+    border: 1px solid var(--green-dim);
+    color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    padding: 12px 20px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .menu-btn:not(:disabled):hover {
+    border-color: var(--green); color: var(--green);
+    background: rgba(0,255,65,0.06);
+    box-shadow: 0 0 10px rgba(0,255,65,0.2);
+  }
+  .menu-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .menu-btn-icon { font-size: 1rem; opacity: 0.8; flex-shrink: 0; }
+  .menu-btn-text { flex: 1; }
+  .menu-btn-sub { font-size: 0.55rem; opacity: 0.5; letter-spacing: 0.1em; display: block; margin-top: 2px; }
+
+  /* CONFIG SCREEN */
+  .setup-modal {
+    text-align: center;
+    border: 1px solid var(--green-dim);
+    padding: 32px 40px;
+    background: var(--panel);
+    box-shadow: 0 0 30px var(--green-glow);
+    max-height: 90vh;
+    overflow-y: auto;
+    min-width: 420px;
+  }
+
+  .config-prop-list { display: flex; flex-direction: column; gap: 0; text-align: left; width: 100%; }
+  .config-prop-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 9px 0;
+    border-bottom: 1px solid rgba(0,168,40,0.15);
+  }
+  .config-prop-row--divider { margin-top: 6px; border-top: 1px solid rgba(0,168,40,0.15); }
+  .config-prop-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .config-prop-name { font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; letter-spacing: 0.18em; font-weight: bold; }
+  .config-prop-desc { font-size: 0.56rem; color: var(--green-dim); letter-spacing: 0.06em; opacity: 0.7; line-height: 1.4; }
+
+  .game-name-row { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+  .game-name-display {
+    font-family: 'VT323', monospace; font-size: 1.3rem; letter-spacing: 0.15em;
+    color: var(--green-dim); cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.15s, color 0.15s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+  }
+  .game-name-display:hover { color: var(--green); border-bottom-color: var(--green-dim); }
+  .game-name-input {
+    font-family: 'VT323', monospace; font-size: 1.3rem; letter-spacing: 0.15em;
+    color: var(--green); background: none; border: none;
+    border-bottom: 1px solid var(--green); outline: none; width: 200px; padding: 0;
+    box-shadow: 0 2px 0 rgba(0,255,65,0.25);
+  }
+  .game-name-edit-btn {
+    background: none; border: none; color: var(--green-dim);
+    font-size: 0.85rem; cursor: pointer; padding: 0 2px; line-height: 1;
+    transition: color 0.15s; flex-shrink: 0;
+  }
+  .game-name-edit-btn:hover { color: var(--green); }
+
+  /* STATS */
+  .stats { display: flex; gap: 0; font-size: 0.65rem; color: var(--green-dim); letter-spacing: 0.12em; }
+  .stat { min-width: 120px; white-space: nowrap; }
+  .stat span {
+    display: inline-block; min-width: 72px;
+    color: var(--green); font-family: 'VT323', monospace; font-size: 1.05rem;
+    font-variant-numeric: tabular-nums; letter-spacing: 0.05em;
+  }
+
+  .sidebar-section-title {
+    font-size: 0.55rem; letter-spacing: 0.25em; color: var(--green-dim);
+    border-bottom: 1px solid rgba(0,168,40,0.3);
+    padding-bottom: 3px; margin-bottom: 3px; text-transform: uppercase;
+  }
+
+  .entity-legend { display: flex; flex-direction: column; gap: 2px; color: var(--green-dim); }
+
+  .legend-item {
+    display: flex; flex-direction: column;
+    cursor: pointer; padding: 5px 8px;
+    border: 1px solid transparent;
+    transition: border-color 0.15s, background 0.15s;
+    gap: 1px;
+  }
+  .legend-item:hover { border-color: var(--green-dim); background: rgba(0,255,65,0.05); }
+  .legend-item-name {
+    font-size: 1.1rem; font-family: 'VT323', monospace; letter-spacing: 0.12em;
+    display: flex; align-items: baseline; gap: 6px;
+  }
+  .legend-item-prop { font-size: 0.72rem; letter-spacing: 0.1em; opacity: 0.85; padding-left: 2px; }
+
+  /* EDITOR BOX */
+  .editor-box {
+    border: 1px solid var(--green-dim); background: var(--panel);
+    padding: 14px 12px 12px; width: 100%; box-sizing: border-box;
+    text-align: left; box-shadow: 0 0 20px var(--green-glow);
+  }
+
+  .editor-name-row { display: flex; flex-direction: column; margin-bottom: 6px; gap: 3px; }
+  .editor-name-inner { display: flex; align-items: center; gap: 6px; }
+
+  .editor-title {
+    font-family: 'VT323', monospace; font-size: 1.5rem; letter-spacing: 0.2em;
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.15s, color 0.15s;
+    flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .editor-title:hover { border-bottom-color: rgba(0,168,40,0.4); }
+
+  .editor-name-input {
+    flex: 1; background: none; border: none;
+    border-bottom: 1px dashed currentColor;
+    color: inherit; font-family: 'VT323', monospace; font-size: 1.5rem;
+    letter-spacing: 0.2em; outline: none; width: 100%; padding: 0;
+  }
+
+  .editor-rename-hint {
+    font-size: 0.5rem; color: var(--green-dim); letter-spacing: 0.18em;
+    opacity: 0.6; cursor: pointer; user-select: none; transition: opacity 0.15s;
+  }
+  .editor-rename-hint:hover { opacity: 1; }
+
+  .editor-prop-btn {
+    display: block; width: 100%; box-sizing: border-box;
+    background: none; border: 1px solid var(--green-dim); color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.12em; padding: 7px 10px; margin: 5px 0;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
+    text-align: left;
+  }
+  .editor-prop-btn:hover { background: rgba(0,255,65,0.06); }
+  .editor-prop-btn.selected { border-color: currentColor; box-shadow: 0 0 8px currentColor; background: rgba(255,255,255,0.04); }
+  .editor-prop-btn[data-prop="destroy"] { color: #ff6666; }
+  .editor-prop-btn[data-prop="bounce"]  { color: #00ff41; }
+  .editor-prop-btn[data-prop="stop"]    { color: #ffdd00; }
+  .editor-prop-btn[data-prop="devour"]  { color: #ff8800; }
+  .editor-prop-btn[data-prop="change"]  { color: #cc44ff; }
+
+  .editor-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-start; }
+
+  .editor-speed-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0,168,40,0.2);
+  }
+
+  .editor-speed-label {
+    font-size: 0.58rem;
+    color: var(--green-dim);
+    letter-spacing: 0.2em;
+    flex-shrink: 0;
+  }
+
+  .editor-speed-control {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--green-dim);
+    background: var(--bg);
+  }
+
+  .editor-speed-control:focus-within {
+    border-color: var(--green);
+    box-shadow: 0 0 8px rgba(0,255,65,0.2);
+  }
+
+  #editorSpeedVal {
+    font-family: 'VT323', monospace;
+    font-size: 1.3rem;
+    color: var(--green);
+    min-width: 28px;
+    text-align: center;
+    line-height: 1;
+    padding: 1px 2px;
+    letter-spacing: 0.05em;
+  }
+
+  .editor-speed-range {
+    font-size: 0.55rem;
+    color: var(--green-dim);
+    letter-spacing: 0.1em;
+    opacity: 0.6;
+    flex-shrink: 0;
+  }
+
+  .editor-btn {
+    background: none; border: 1px solid var(--green-dim); color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace; font-size: 0.65rem;
+    letter-spacing: 0.18em; padding: 5px 14px; cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .editor-btn.confirm { border-color: var(--green); color: var(--green); }
+  .editor-btn:hover { background: rgba(0,255,65,0.08); border-color: var(--green); color: var(--green); }
+
+  /* CONTROLS */
+  .controls { font-size: 0.6rem; color: var(--green-dim); letter-spacing: 0.15em; display: flex; gap: 16px; align-items: center; }
+  .controls span { white-space: nowrap; }
+
+  .key {
+    display: inline-block; border: 1px solid var(--green-dim);
+    padding: 1px 6px; margin: 0 2px; color: var(--green);
+    font-size: 0.65rem; background: none;
+    font-family: 'Share Tech Mono', monospace; cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+  }
+  button.key:hover { border-color: var(--green); box-shadow: 0 0 8px rgba(0,255,65,0.3); background: rgba(0,255,65,0.07); }
+  button.key:active { background: rgba(0,255,65,0.18); box-shadow: 0 0 14px rgba(0,255,65,0.5); }
+
+  /* spinner inputs */
+  .entity-input-label { font-size: 0.7rem; color: var(--green-dim); letter-spacing: 0.2em; }
+  .entity-input-wrap {
+    display: flex; align-items: center;
+    border: 1px solid var(--green-dim); background: var(--bg);
+    box-shadow: 0 0 8px rgba(0,255,65,0.1);
+  }
+  .entity-input-wrap:focus-within { border-color: var(--green); box-shadow: 0 0 12px rgba(0,255,65,0.25); }
+  .entity-count-btn {
+    background: none; border: none; color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace; font-size: 1.1rem;
+    padding: 2px 10px; cursor: pointer; transition: color 0.15s; line-height: 1;
+  }
+  .entity-count-btn:hover { color: var(--green); }
+
+  #entityCountInput, #maxWInput, #maxHInput,
+  #destroyCountInput, #bounceCountInput, #stopCountInput, #devourCountInput, #changeCountInput, #maxSpeedInput {
+    background: none; border: none;
+    border-left: 1px solid var(--green-dim); border-right: 1px solid var(--green-dim);
+    color: var(--green); font-family: 'VT323', monospace; font-size: 1.4rem;
+    width: 48px; text-align: center; outline: none; padding: 2px 0; letter-spacing: 0.05em;
+  }
+  #entityCountInput::-webkit-inner-spin-button, #entityCountInput::-webkit-outer-spin-button,
+  #maxWInput::-webkit-inner-spin-button, #maxWInput::-webkit-outer-spin-button,
+  #maxHInput::-webkit-inner-spin-button, #maxHInput::-webkit-outer-spin-button,
+  #destroyCountInput::-webkit-inner-spin-button, #destroyCountInput::-webkit-outer-spin-button,
+  #bounceCountInput::-webkit-inner-spin-button, #bounceCountInput::-webkit-outer-spin-button,
+  #stopCountInput::-webkit-inner-spin-button, #stopCountInput::-webkit-outer-spin-button,
+  #devourCountInput::-webkit-inner-spin-button, #devourCountInput::-webkit-outer-spin-button,
+  #changeCountInput::-webkit-inner-spin-button, #changeCountInput::-webkit-outer-spin-button,
+  #maxSpeedInput::-webkit-inner-spin-button, #maxSpeedInput::-webkit-outer-spin-button { -webkit-appearance: none; }
+  #entityCountInput[type=number], #maxWInput[type=number], #maxHInput[type=number],
+  #destroyCountInput[type=number], #bounceCountInput[type=number], #stopCountInput[type=number],
+  #devourCountInput[type=number], #changeCountInput[type=number], #maxSpeedInput[type=number] { -moz-appearance: textfield; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0 6px; }
+  .toggle-label { font-size: 0.7rem; color: var(--green-dim); letter-spacing: 0.15em; }
+  .toggle-switch { position: relative; width: 48px; height: 22px; cursor: pointer; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track { position: absolute; inset: 0; border: 1px solid var(--green-dim); background: var(--bg); transition: border-color 0.2s, box-shadow 0.2s; }
+  .toggle-switch input:checked ~ .toggle-track { border-color: var(--green); box-shadow: 0 0 10px rgba(0,255,65,0.3); }
+  .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: var(--green-dim); transition: transform 0.2s, background 0.2s; }
+  .toggle-switch input:checked ~ .toggle-track .toggle-thumb { transform: translateX(22px); background: var(--green); }
+
+  .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; margin: 14px 0 4px; align-items: center; justify-items: center; }
+  .size-inputs { display: flex; align-items: center; gap: 6px; }
+  .size-x-label { font-size: 0.8rem; color: var(--green-dim); letter-spacing: 0.1em; }
+
+  /* HELP MODAL */
+  #helpBackdrop {
+    position: fixed; inset: 0; background: rgba(2,13,2,0.82); z-index: 500;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  #helpBackdrop.visible { opacity: 1; pointer-events: all; }
+  #helpModal {
+    position: relative; background: var(--panel); border: 1px solid var(--green-dim);
+    box-shadow: 0 0 40px var(--green-glow); padding: 32px 36px 24px;
+    max-width: 520px; width: 90%; max-height: 80vh; overflow-y: auto;
+  }
+  #helpClose {
+    position: absolute; top: 10px; right: 12px; background: none; border: none;
+    color: var(--green-dim); font-size: 1rem; cursor: pointer;
+    font-family: 'Share Tech Mono', monospace; line-height: 1; transition: color 0.15s;
+  }
+  #helpClose:hover { color: var(--green); }
+  .help-title { font-family: 'VT323', monospace; font-size: 1.8rem; letter-spacing: 0.25em; text-shadow: 0 0 10px var(--green); margin-bottom: 20px; }
+  .help-grid { display: flex; flex-direction: column; gap: 16px; }
+  .help-entry { display: flex; flex-direction: column; gap: 4px; border-left: 2px solid rgba(0,168,40,0.3); padding-left: 12px; }
+  .help-prop { font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; letter-spacing: 0.2em; font-weight: bold; }
+  .help-desc { font-size: 0.65rem; color: var(--green-dim); letter-spacing: 0.08em; line-height: 1.6; }
+  .help-hint { margin-top: 20px; font-size: 0.52rem; color: rgba(0,168,40,0.45); letter-spacing: 0.2em; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <header>
+    <h1><span style="animation:flicker 6s infinite;display:inline;">VECTORION</span>&nbsp;<span id="headerGameName" style="font-family:'Share Tech Mono',monospace;font-size:0.9rem;color:var(--green-dim);letter-spacing:0.2em;font-weight:normal;vertical-align:middle;animation:none;"></span></h1>
+  </header>
+  <div id="autosaveToast" style="margin-left:auto;margin-right:10px;font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:#00ff41;letter-spacing:0.18em;opacity:0;transition:opacity 0.4s;white-space:nowrap;align-self:center;text-shadow:0 0 6px rgba(0,255,65,0.5);">✓ GAME SAVED</div>
+  <div style="flex-shrink:0;"><button class="key" id="ctrlHelp">?</button></div>
+</div>
+
+<!-- MIDDLE ROW -->
+<div class="middle-row">
+  <div class="left-col">
+    <div class="game-area" id="gameArea">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="resize-handle" id="resizeHandle"></div>
+
+  <div class="right-col" id="editorSidebar">
+    <div class="editor-section">
+      <div id="entityEditor">
+        <div class="editor-box">
+          <div class="editor-name-row">
+            <div class="editor-name-inner">
+              <div class="editor-title" id="editorTitle" title="Click to rename">EDIT ENTITY</div>
+              <input class="editor-name-input" id="editorNameInput" type="text" maxlength="20" placeholder="NAME" style="display:none;">
+            </div>
+            <span class="editor-rename-hint" id="editorRenameHint">✎ click name to rename</span>
+          </div>
+          <div style="font-size:0.58rem;color:var(--green-dim);letter-spacing:0.12em;margin-bottom:12px;">SELECT MOVEMENT PROPERTY</div>
+          <button class="editor-prop-btn" data-prop="destroy">☠ DESTROY — eliminates on contact</button>
+          <button class="editor-prop-btn" data-prop="bounce">◈ BOUNCE — deflects on contact</button>
+          <button class="editor-prop-btn" data-prop="stop">◼ STOP — freezes on contact</button>
+          <button class="editor-prop-btn" data-prop="devour">◉ DEVOUR — assimilates on contact</button>
+          <button class="editor-prop-btn" data-prop="change">⟳ CHANGE — acts then mutates</button>
+
+          <div class="editor-speed-row">
+            <span class="editor-speed-label">SPEED</span>
+            <div class="editor-speed-control">
+              <button class="entity-count-btn" id="editorSpeedMinus">−</button>
+              <span id="editorSpeedVal">1</span>
+              <button class="entity-count-btn" id="editorSpeedPlus">+</button>
+            </div>
+            <span id="editorSpeedRange" class="editor-speed-range">/ 3</span>
+          </div>
+
+          <div class="editor-actions">
+            <button class="editor-btn" id="editorCancel">CANCEL</button>
+            <button class="editor-btn confirm" id="editorConfirm">APPLY</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="entities-section" id="entitiesSection">
+      <div class="sidebar-section-title">ENTITIES <span style="opacity:0.5;font-size:0.5rem">— click to edit</span></div>
+      <div class="entity-legend" id="entityLegend"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP BACKDROP -->
+<div id="setupBackdrop" class="setup-backdrop">
+  <div id="mainMenu" class="main-menu">
+    <div class="main-menu-title">VECTORION</div>
+    <div class="main-menu-sub" style="color:#ffdd00;opacity:0.75;text-shadow:0 0 8px rgba(255,221,0,0.3);">v5.52</div>
+    <button class="menu-btn" id="menuContinue" disabled>
+      <span class="menu-btn-icon">▶</span>
+      <span class="menu-btn-text">CONTINUE GAME<span class="menu-btn-sub" id="continueSubtext">no active session</span></span>
+    </button>
+    <button class="menu-btn" id="menuLoad">
+      <span class="menu-btn-icon">⬆</span>
+      <span class="menu-btn-text">LOAD FROM FILE<span class="menu-btn-sub">import a .json save</span></span>
+    </button>
+    <button class="menu-btn" id="menuNew">
+      <span class="menu-btn-icon">✦</span>
+      <span class="menu-btn-text">CREATE NEW GAME<span class="menu-btn-sub">configure and start</span></span>
+    </button>
+  </div>
+
+  <div id="configScreen" class="setup-modal" style="display:none;">
+    <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:6px;">
+      <div class="overlay-title" style="text-align:left;margin-bottom:0;">NEW GAME</div>
+      <div class="game-name-row" id="gameNameRow">
+        <span class="game-name-display" id="gameNameDisplay" title="Click to rename"></span>
+        <input class="game-name-input" id="gameNameInput" type="text" maxlength="40" style="display:none;">
+        <button class="game-name-edit-btn" id="gameNameEditBtn" title="Rename">✎</button>
+      </div>
+    </div>
+    <div style="font-size:0.6rem;color:var(--green-dim);margin-bottom:20px;letter-spacing:0.1em;text-align:left;">Configure entities and press SPACE or ▶ START to begin.</div>
+    <div class="config-prop-list">
+      <div class="config-prop-row">
+        <div class="config-prop-info">
+          <span class="config-prop-name" style="color:#ff6666;">☠ DESTROY</span>
+          <span class="config-prop-desc">Eliminates any entity on contact. Two destroyers annihilate each other.</span>
+        </div>
+        <div class="entity-input-wrap">
+          <button class="entity-count-btn" id="btnDestroyMinus">−</button>
+          <input type="number" id="destroyCountInput" value="1" min="0" max="10">
+          <button class="entity-count-btn" id="btnDestroyPlus">+</button>
+        </div>
+      </div>
+      <div class="config-prop-row">
+        <div class="config-prop-info">
+          <span class="config-prop-name" style="color:#00ff41;">◈ BOUNCE</span>
+          <span class="config-prop-desc">Deflects off walls and other entities. Default behaviour.</span>
+        </div>
+        <div class="entity-input-wrap">
+          <button class="entity-count-btn" id="btnBounceMinus">−</button>
+          <input type="number" id="bounceCountInput" value="10" min="0" max="20">
+          <button class="entity-count-btn" id="btnBouncePlus">+</button>
+        </div>
+      </div>
+      <div class="config-prop-row">
+        <div class="config-prop-info">
+          <span class="config-prop-name" style="color:#ffdd00;">◼ STOP</span>
+          <span class="config-prop-desc">Freezes on collision. A second hit resumes movement.</span>
+        </div>
+        <div class="entity-input-wrap">
+          <button class="entity-count-btn" id="btnStopMinus">−</button>
+          <input type="number" id="stopCountInput" value="2" min="0" max="10">
+          <button class="entity-count-btn" id="btnStopPlus">+</button>
+        </div>
+      </div>
+      <div class="config-prop-row">
+        <div class="config-prop-info">
+          <span class="config-prop-name" style="color:#ff8800;">◉ DEVOUR</span>
+          <span class="config-prop-desc">Absorbs entities it touches, growing larger. Destroyed by DESTROY.</span>
+        </div>
+        <div class="entity-input-wrap">
+          <button class="entity-count-btn" id="btnDevourMinus">−</button>
+          <input type="number" id="devourCountInput" value="2" min="0" max="10">
+          <button class="entity-count-btn" id="btnDevourPlus">+</button>
+        </div>
+      </div>
+      <div class="config-prop-row">
+        <div class="config-prop-info">
+          <span class="config-prop-name" style="color:#cc44ff;">⟳ CHANGE</span>
+          <span class="config-prop-desc">Acts as a random property on hit, then mutates to a new one.</span>
+        </div>
+        <div class="entity-input-wrap">
+          <button class="entity-count-btn" id="btnChangeMinus">−</button>
+          <input type="number" id="changeCountInput" value="2" min="0" max="10">
+          <button class="entity-count-btn" id="btnChangePlus">+</button>
+        </div>
+      </div>
+      <div class="config-prop-row config-prop-row--divider">
+        <div class="config-prop-info">
+          <span class="config-prop-name" style="color:var(--green-dim);">MAX SIZE</span>
+          <span class="config-prop-desc">Maximum bounding box of each entity's polyomino shape.</span>
+        </div>
+        <div class="size-inputs">
+          <div class="entity-input-wrap">
+            <button class="entity-count-btn" id="btnWMinus">−</button>
+            <input type="number" id="maxWInput" value="4" min="1" max="8">
+            <button class="entity-count-btn" id="btnWPlus">+</button>
+          </div>
+          <span class="size-x-label">×</span>
+          <div class="entity-input-wrap">
+            <button class="entity-count-btn" id="btnHMinus">−</button>
+            <input type="number" id="maxHInput" value="4" min="1" max="8">
+            <button class="entity-count-btn" id="btnHPlus">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="config-prop-row">
+        <div class="config-prop-info">
+          <span class="config-prop-name" style="color:var(--green-dim);">MAX SPEED</span>
+          <span class="config-prop-desc">Entities get a random speed from 1 to this value. Faster entities move more tiles per tick.</span>
+        </div>
+        <div class="entity-input-wrap">
+          <button class="entity-count-btn" id="btnMaxSpeedMinus">−</button>
+          <input type="number" id="maxSpeedInput" value="3" min="1" max="10">
+          <button class="entity-count-btn" id="btnMaxSpeedPlus">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="toggle-row" style="margin-top:16px;">
+      <span class="toggle-label">DIAGONAL MOVEMENT:</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="diagonalToggle" checked>
+        <div class="toggle-track"><div class="toggle-thumb"></div></div>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">SPEED TRAIL:</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="speedTrailToggle" checked>
+        <div class="toggle-track"><div class="toggle-thumb"></div></div>
+      </label>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;">
+      <button class="editor-btn" id="configBack">← BACK</button>
+      <button class="editor-btn confirm" id="configStart">▶ START — PRESS SPACE</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM BAR -->
+<div class="bottom-bar">
+  <div class="stats">
+    <div class="stat">TICK: <span id="tickCount">0</span></div>
+    <div class="stat">COLLISIONS: <span id="collisionCount">0</span></div>
+    <div class="stat">STATUS: <span id="statusDisplay">STANDBY</span></div>
+  </div>
+  <div class="controls">
+    <span><button class="key" id="ctrlSpace">SPACE</button> START / PAUSE</span>
+    <span><button class="key">ENTER</button> STEP (when paused)</span>
+    <span><button class="key" id="ctrlEsc">ESC</button> RESTART</span>
+    <span><button class="key" id="ctrlFaster">+</button> FASTER &nbsp;<button class="key" id="ctrlSlower">-</button> SLOWER</span>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:10px;align-items:center;">
+    <button class="key" id="ctrlExport">EXPORT</button>
+    <button class="key" id="ctrlImport">IMPORT</button>
+    <span style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:#ffdd00;opacity:0.75;letter-spacing:0.15em;text-shadow:0 0 6px rgba(255,221,0,0.3);">v5.52</span>
+  </div>
+</div>
+
+<input type="file" id="importFileInput" accept=".json" style="display:none;">
+
+<!-- IMPORT SUCCESS MODAL -->
+<div id="importSuccessBackdrop" style="position:fixed;inset:0;background:rgba(2,13,2,0.88);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s;">
+  <div style="border:1px solid var(--green-dim);background:var(--panel);padding:36px 48px;text-align:center;box-shadow:0 0 30px var(--green-glow);max-width:480px;width:90%;">
+    <div style="font-size:0.55rem;color:var(--green-dim);letter-spacing:0.3em;margin-bottom:8px;text-transform:uppercase;">Game Loaded</div>
+    <div id="importSuccessName" style="font-family:'VT323',monospace;font-size:2.2rem;letter-spacing:0.2em;text-shadow:0 0 12px var(--green);margin-bottom:8px;"></div>
+    <div id="importSuccessTick" style="font-size:0.65rem;color:var(--green-dim);letter-spacing:0.2em;margin-bottom:4px;"></div>
+    <div id="importSuccessDate" style="font-size:0.58rem;color:var(--green-dim);opacity:0.6;letter-spacing:0.15em;margin-bottom:24px;"></div>
+    <button id="importSuccessStart" class="editor-btn confirm" style="font-size:0.8rem;padding:10px 24px;letter-spacing:0.2em;">▶ PRESS SPACE TO START</button>
+  </div>
+</div>
+
+<!-- IMPORT ERROR MODAL -->
+<div id="importErrorBackdrop" style="position:fixed;inset:0;background:rgba(2,13,2,0.88);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s;">
+  <div style="border:1px solid #ff2222;background:var(--panel);padding:32px 40px;text-align:center;box-shadow:0 0 30px rgba(255,34,34,0.2);max-width:480px;width:90%;">
+    <div style="font-size:0.55rem;color:#ff6666;letter-spacing:0.3em;margin-bottom:10px;text-transform:uppercase;">⚠ Import Failed</div>
+    <div id="importErrorMsg" style="font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:#ff8888;letter-spacing:0.1em;line-height:1.7;margin-bottom:24px;text-align:left;"></div>
+    <button id="importErrorClose" class="editor-btn" style="border-color:#ff6666;color:#ff6666;font-size:0.75rem;padding:7px 20px;">DISMISS</button>
+  </div>
+</div>
+<div id="helpBackdrop">
+  <div id="helpModal">
+    <button id="helpClose">✕</button>
+    <div class="help-title">MOVEMENT PROPERTIES</div>
+    <div class="help-grid">
+      <div class="help-entry">
+        <div class="help-prop" style="color:#ff2222;">☠ DESTROY</div>
+        <div class="help-desc">Eliminates any entity it collides with. If two DESTROY entities meet, both are annihilated. Cannot be consumed by DEVOUR.</div>
+      </div>
+      <div class="help-entry">
+        <div class="help-prop" style="color:#00ff41;">◈ BOUNCE</div>
+        <div class="help-desc">Deflects off walls and other entities. Changes direction on every collision. Default movement behaviour.</div>
+      </div>
+      <div class="help-entry">
+        <div class="help-prop" style="color:#ffdd00;">◼ STOP</div>
+        <div class="help-desc">Freezes in place upon any collision. A second collision from another entity will unfreeze it, resuming movement.</div>
+      </div>
+      <div class="help-entry">
+        <div class="help-prop" style="color:#ff8800;">◉ DEVOUR</div>
+        <div class="help-desc">Assimilates entities it collides with, absorbing their cells and growing larger. Cannot assimilate a DESTROY entity — instead gets eliminated by it.</div>
+      </div>
+      <div class="help-entry">
+        <div class="help-prop" style="color:#cc44ff;">⟳ CHANGE-[PROP]</div>
+        <div class="help-desc">Acts as the property shown in brackets upon collision, then immediately mutates to a different random property. The bracket label updates live to reflect the next behaviour. When two CHANGE-[DEVOUR] entities collide, the one created earlier wins — it absorbs the other and then mutates.</div>
+      </div>
+    </div>
+    <div class="help-hint">click outside or press ESC to close</div>
+  </div>
+</div>
+
+<script>
+const COLS = 100, ROWS = 100, TRAIL_LENGTH = 14;
+const CARDINAL_DIRS = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}];
+const ALL_8_DIRS = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0},{dx:-1,dy:-1},{dx:1,dy:-1},{dx:-1,dy:1},{dx:1,dy:1}];
+
+let diagonalMode = true, maxEntityW = 4, maxEntityH = 4, maxSpeed = 3, showSpeedTrail = true;
+function getDirSet() { return diagonalMode ? ALL_8_DIRS : CARDINAL_DIRS; }
+
+function hexToRgb(hex) {
+  return { r: parseInt(hex.slice(1,3),16), g: parseInt(hex.slice(3,5),16), b: parseInt(hex.slice(5,7),16) };
+}
+
+const ROLE_COLORS = {
+  destroy: { main:'#ff2222', glow:'rgba(255,34,34,0.32)',   trailR:220, trailG:20,  trailB:20  },
+  bounce:  { main:'#00ff41', glow:'rgba(0,255,65,0.28)',    trailR:0,   trailG:200, trailB:50  },
+  stop:    { main:'#ffdd00', glow:'rgba(255,221,0,0.28)',   trailR:220, trailG:180, trailB:0   },
+  devour:  { main:'#ff8800', glow:'rgba(255,136,0,0.30)',   trailR:220, trailG:100, trailB:0   },
+  change:  { main:'#cc44ff', glow:'rgba(204,68,255,0.30)',  trailR:160, trailG:30,  trailB:220 },
+};
+const CHANGE_TARGETS = ['destroy','bounce','stop','devour'];
+function randomChangeTarget(exclude) { const p = CHANGE_TARGETS.filter(x=>x!==exclude); return p[Math.floor(Math.random()*p.length)]; }
+function changeLabel(t) { return `CHANGE-[${(t||'?').toUpperCase()}]`; }
+
+function makeEntityDef(i, total, movementProperty) {
+  const col = ROLE_COLORS[movementProperty] || ROLE_COLORS['change'];
+  const { r, g, b } = hexToRgb(col.main);
+  const labels = ['ALPHA','BETA','GAMMA','DELTA','EPSILON','ZETA','ETA','THETA','IOTA','KAPPA','LAMBDA','MU','NU','XI','OMICRON','PI','RHO','SIGMA','TAU','UPSILON'];
+  return { main:col.main, glow:col.glow, trailR:col.trailR, trailG:col.trailG, trailB:col.trailB, label:labels[i]||`E${i+1}` };
+}
+
+const flashes = [];
+
+function randomPolyomino(maxW, maxH) {
+  const maxCells = maxW * maxH;
+  const targetCount = 1 + Math.floor(Math.random() * maxCells);
+  const filled = new Set(), key = (x,y) => `${x},${y}`;
+  const sx = Math.floor(Math.random()*maxW), sy = Math.floor(Math.random()*maxH);
+  filled.add(key(sx,sy));
+  const frontier = [];
+  const addF = (x,y) => { if(x>=0&&x<maxW&&y>=0&&y<maxH&&!filled.has(key(x,y))&&!frontier.find(f=>f.x===x&&f.y===y)) frontier.push({x,y}); };
+  addF(sx-1,sy); addF(sx+1,sy); addF(sx,sy-1); addF(sx,sy+1);
+  while (filled.size < targetCount && frontier.length > 0) {
+    const idx = Math.floor(Math.random()*frontier.length);
+    const {x,y} = frontier.splice(idx,1)[0];
+    if (!filled.has(key(x,y))) { filled.add(key(x,y)); addF(x-1,y); addF(x+1,y); addF(x,y-1); addF(x,y+1); }
+  }
+  const cells = [...filled].map(k => { const [x,y]=k.split(',').map(Number); return {dx:x,dy:y}; });
+  const minX = Math.min(...cells.map(c=>c.dx)), minY = Math.min(...cells.map(c=>c.dy));
+  return cells.map(c => ({dx:c.dx-minX, dy:c.dy-minY}));
+}
+
+function boundingBox(cells) {
+  const xs=cells.map(c=>c.dx), ys=cells.map(c=>c.dy);
+  return {minX:Math.min(...xs),maxX:Math.max(...xs),minY:Math.min(...ys),maxY:Math.max(...ys)};
+}
+
+function entityHitsWall(e,dir) { return e.cells.some(({dx,dy})=>{const nx=e.x+dx+dir.dx,ny=e.y+dy+dir.dy;return nx<0||nx>=COLS||ny<0||ny>=ROWS;}); }
+function wallAxes(e,dir) { let hx=false,hy=false; e.cells.forEach(({dx,dy})=>{const nx=e.x+dx+dir.dx,ny=e.y+dy+dir.dy;if(nx<0||nx>=COLS)hx=true;if(ny<0||ny>=ROWS)hy=true;}); return {hitX:hx,hitY:hy}; }
+function bounceDir(dir,e) { const {hitX,hitY}=wallAxes(e,dir); let ndx=hitX?-dir.dx:dir.dx,ndy=hitY?-dir.dy:dir.dy; const dirs=getDirSet(); const ref=dirs.find(d=>d.dx===ndx&&d.dy===ndy); if(ref&&!entityHitsWall(e,ref))return ref; const avail=dirs.filter(d=>d!==dir&&!entityHitsWall(e,d)); return avail.length>0?avail[Math.floor(Math.random()*avail.length)]:dir; }
+function entitiesOverlap(ei,pi,ej,pj) { const s=new Set(); for(const {dx,dy} of ei.cells)s.add(`${pi.nx+dx},${pi.ny+dy}`); for(const {dx,dy} of ej.cells){if(s.has(`${pj.nx+dx},${pj.ny+dy}`))return true;} return false; }
+function randomDir() { const dirs=getDirSet(); return dirs[Math.floor(Math.random()*dirs.length)]; }
+
+function makeEntities(typeCounts) {
+  const pool = [];
+  Object.entries(typeCounts).forEach(([prop,count])=>{ for(let k=0;k<count;k++) pool.push(prop); });
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  return pool.map((movementProperty,i)=>{
+    const cells=randomPolyomino(maxEntityW,maxEntityH), bb=boundingBox(cells);
+    const w=bb.maxX-bb.minX+1, h=bb.maxY-bb.minY+1;
+    const angle=(i/pool.length)*Math.PI*2;
+    const cx=Math.round(50+32*Math.cos(angle)), cy=Math.round(50+32*Math.sin(angle));
+    const x=Math.max(0,Math.min(COLS-w,cx-Math.floor(w/2))), y=Math.max(0,Math.min(ROWS-h,cy-Math.floor(h/2)));
+    const centX=cells.reduce((s,c)=>s+c.dx,0)/cells.length, centY=cells.reduce((s,c)=>s+c.dy,0)/cells.length;
+    return { x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)) };
+  });
+}
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const overlay = document.getElementById('setupBackdrop');
+const gameArea = document.getElementById('gameArea');
+const entitiesSection = document.getElementById('entitiesSection');
+
+let entities = makeEntities({destroy:1,bounce:10,stop:2,devour:2,change:2});
+let running=false, tick=0, totalCollisions=0, intervalId=null, speed=80, CELL, FONT_SIZE;
+
+const TOP_H=44, BOT_H=36, PAD_COL=20;
+let leftColW=null;
+
+function calcCellSize(canvasPixelW) {
+  const availH=window.innerHeight-TOP_H-BOT_H-PAD_COL;
+  return Math.max(4,Math.min(Math.floor(availH/ROWS),Math.floor(canvasPixelW/COLS)));
+}
+
+function resizeCanvas() {
+  if(leftColW===null) leftColW=Math.floor(window.innerWidth*0.62);
+  const minLeft=COLS*4+PAD_COL, maxLeft=window.innerWidth-120;
+  leftColW=Math.max(minLeft,Math.min(maxLeft,leftColW));
+  CELL=calcCellSize(leftColW-PAD_COL);
+  FONT_SIZE=Math.max(6,Math.floor(CELL*0.85));
+  canvas.width=COLS*CELL; canvas.height=ROWS*CELL;
+  gameArea.style.width=canvas.width+'px'; gameArea.style.height=canvas.height+'px';
+  document.querySelector('.left-col').style.width=leftColW+'px';
+  draw();
+}
+
+// --- Entity editor state ---
+const entityEditor=document.getElementById('entityEditor');
+let editingEntityIndex=null, selectedProp=null, originalProp=null, wasRunningBeforeEdit=false;
+const editorTitle=document.getElementById('editorTitle');
+const editorNameInput=document.getElementById('editorNameInput');
+
+function buildLegendIn(container) {
+  container.innerHTML='';
+  entities.forEach((e,idx)=>{
+    const propColors={destroy:'#ff2222',bounce:'#00a828',stop:'#ffdd00',devour:'#ff8800',change:'#cc44ff'};
+    const propIcons={destroy:'☠',bounce:'◈',stop:'◼',devour:'◉',change:'⟳'};
+    const propLabel=e.movementProperty==='change'?changeLabel(e.changeTarget||'bounce'):e.movementProperty.toUpperCase()+(e.movementProperty==='stop'&&e.stopped?' [HALTED]':'');
+    const propColor=propColors[e.movementProperty]||'var(--green-dim)';
+    const propIcon=propIcons[e.movementProperty]||'?';
+    const isSelected=editingEntityIndex===idx;
+    const item=document.createElement('div');
+    item.className='legend-item';
+    item.title='Click to edit';
+    if(isSelected){item.style.borderColor='rgba(255,255,255,0.85)';item.style.boxShadow='0 0 6px rgba(255,255,255,0.4)';}
+    item.innerHTML=`<div class="legend-item-name"><span style="font-family:'Share Tech Mono',monospace;font-weight:bold;color:${e.def.main};text-shadow:0 0 8px ${e.def.main};font-size:1rem;">@</span><span style="color:${e.def.main};text-shadow:0 0 6px ${e.def.main}40;">${e.def.label}</span><span style="opacity:0.4;font-size:0.65rem;font-family:'Share Tech Mono',monospace;">${e.cells.length}c</span></div><div class="legend-item-prop" style="color:${propColor};">${propIcon} ${propLabel} <span style="opacity:0.5;font-size:0.6rem;color:var(--green-dim);">SPD ${e.speed||1}</span></div>`;
+    item.addEventListener('click',()=>openEntityEditor(idx));
+    container.appendChild(item);
+  });
+}
+function buildLegend(){buildLegendIn(document.getElementById('entityLegend'));}
+
+function step() {
+  // Phase 1: move each entity speed tiles, checking walls at each sub-step
+  // Result: final positions stored in next[]
+  const next = entities.map(e => {
+    if (e.stopped) return { nx: e.x, ny: e.y };
+    let cx = e.x, cy = e.y;
+    for (let s = 0; s < e.speed; s++) {
+      // Check wall before moving one tile
+      if (entityHitsWall(e, e.dir)) {
+        e.dir = bounceDir(e.dir, e);
+      }
+      // If still hits wall after bounce (corner case), stay put this sub-step
+      if (!entityHitsWall(e, e.dir)) {
+        cx += e.dir.dx;
+        cy += e.dir.dy;
+      }
+      // Update e's temp position for wall checks in subsequent sub-steps
+      const prevX = e.x, prevY = e.y;
+      e.x = cx; e.y = cy;
+      if (s < e.speed - 1 && entityHitsWall(e, e.dir)) {
+        e.dir = bounceDir(e.dir, e);
+      }
+    }
+    const finalX = e.x, finalY = e.y;
+    // Restore original position — actual move happens at end of step
+    e.x = entities[entities.indexOf(e)].x; // original x is already overwritten, use finalX
+    return { nx: finalX, ny: finalY };
+  });
+
+  // Restore all positions to original before final commit
+  // (we temporarily moved entities during sub-step wall checks — reset)
+  entities.forEach((e, i) => {
+    // The entity x/y were mutated during sub-stepping; we need to reset to pre-step values.
+    // We stored the originals before the loop — recalculate from next by working backward.
+    // Simpler approach: redo the move cleanly below in a position-independent way
+  });
+
+  // Clean re-implementation: compute final positions without mutating e.x/e.y
+  // Also record intermediate positions for speed-trail rendering
+  const finalNext = entities.map(e => {
+    if (e.stopped) { e.speedTrail = []; return { nx: e.x, ny: e.y }; }
+    let tmp = { x: e.x, y: e.y, cells: e.cells, dir: e.dir };
+    const trail = [];
+    for (let s = 0; s < e.speed; s++) {
+      if (entityHitsWall(tmp, tmp.dir)) {
+        tmp.dir = bounceDir(tmp.dir, tmp);
+      }
+      if (!entityHitsWall(tmp, tmp.dir)) {
+        tmp = { ...tmp, x: tmp.x + tmp.dir.dx, y: tmp.y + tmp.dir.dy };
+      }
+      // Record every intermediate position (skip last — that's the entity itself)
+      if (s < e.speed - 1) trail.push({ x: tmp.x, y: tmp.y });
+    }
+    e.speedTrail = trail;
+    // Commit the final direction back to entity
+    e.dir = tmp.dir;
+    return { nx: tmp.x, ny: tmp.y };
+  });
+
+  // Phase 2: collision detection at final positions
+  const collided=new Set(),toDestroy=new Set(),toStop=new Set(),toResume=new Set(),toDevour=new Map(),toMutate=new Set();
+  const eff=e=>e.movementProperty==='change'?e.changeTarget:e.movementProperty;
+  for(let i=0;i<entities.length;i++){
+    for(let j=i+1;j<entities.length;j++){
+      if(!entitiesOverlap(entities[i],finalNext[i],entities[j],finalNext[j]))continue;
+      const ei=entities[i],ej=entities[j],pi=eff(ei),pj=eff(ej);
+      if(ei.movementProperty==='change')toMutate.add(i);
+      if(ej.movementProperty==='change')toMutate.add(j);
+      if(pi==='destroy'&&pj==='destroy'){toDestroy.add(i);toDestroy.add(j);flashes.push({x:ei.x+ei.centX,y:ei.y+ei.centY,age:0,color:'#ff2222'});flashes.push({x:ej.x+ej.centX,y:ej.y+ej.centY,age:0,color:'#ff2222'});totalCollisions++;}
+      else if(pi==='destroy'&&pj!=='destroy'){toDestroy.add(j);flashes.push({x:ej.x+ej.centX,y:ej.y+ej.centY,age:0,color:'#ff2222'});totalCollisions++;}
+      else if(pj==='destroy'&&pi!=='destroy'){toDestroy.add(i);flashes.push({x:ei.x+ei.centX,y:ei.y+ei.centY,age:0,color:'#ff2222'});totalCollisions++;}
+      else if(pi==='devour'&&pj!=='destroy'){if(!toDevour.has(i))toDevour.set(i,[]);toDevour.get(i).push(j);flashes.push({x:ej.x+ej.centX,y:ej.y+ej.centY,age:0,color:'#ff8800'});totalCollisions++;}
+      else if(pj==='devour'&&pi!=='destroy'){if(!toDevour.has(j))toDevour.set(j,[]);toDevour.get(j).push(i);flashes.push({x:ei.x+ei.centX,y:ei.y+ei.centY,age:0,color:'#ff8800'});totalCollisions++;}
+      else if(pi==='stop'||pj==='stop'){[i,j].forEach(idx=>{const e=entities[idx];if(eff(e)==='stop'){if(e.stopped)toResume.add(idx);else toStop.add(idx);}else collided.add(idx);});}
+      else{collided.add(i);collided.add(j);}
+    }
+  }
+  collided.forEach(i=>{if(toDestroy.has(i))return;const e=entities[i];const avail=getDirSet().filter(d=>d!==e.dir&&!entityHitsWall(e,d));if(avail.length>0)e.dir=avail[Math.floor(Math.random()*avail.length)];finalNext[i]={nx:e.x,ny:e.y};flashes.push({x:e.x+e.centX,y:e.y+e.centY,age:0,color:e.def.main});e.collisions++;totalCollisions++;});
+  const devourVictims=new Set();
+  toDevour.forEach((victims,di)=>{victims.forEach(vi=>{if(toDestroy.has(vi)||devourVictims.has(vi))return;devourVictims.add(vi);const d=entities[di],v=entities[vi];v.cells.forEach(c=>d.cells.push({dx:c.dx+(v.x-d.x),dy:c.dy+(v.y-d.y)}));d.centX=d.cells.reduce((s,c)=>s+c.dx,0)/d.cells.length;d.centY=d.cells.reduce((s,c)=>s+c.dy,0)/d.cells.length;});});
+  toStop.forEach(i=>{entities[i].stopped=true;finalNext[i]={nx:entities[i].x,ny:entities[i].y};flashes.push({x:entities[i].x+entities[i].centX,y:entities[i].y+entities[i].centY,age:0,color:'#ffdd00'});totalCollisions++;});
+  toResume.forEach(i=>{entities[i].stopped=false;flashes.push({x:entities[i].x+entities[i].centX,y:entities[i].y+entities[i].centY,age:0,color:'#ffffff'});});
+  if(toStop.size>0||toResume.size>0)buildLegend();
+  let didMutate=false;
+  toMutate.forEach(i=>{if(toDestroy.has(i))return;const e=entities[i];const prev=e.changeTarget;e.changeTarget=randomChangeTarget(prev);flashes.push({x:e.x+e.centX,y:e.y+e.centY,age:0,color:'#cc44ff'});didMutate=true;});
+  if(didMutate){buildLegend();if(editingEntityIndex!==null){const e=entities[editingEntityIndex];if(e&&e.movementProperty==='change'){const cb=document.querySelector('.editor-prop-btn[data-prop="change"]');if(cb)cb.textContent=`⟳ CHANGE-[${e.changeTarget.toUpperCase()}] — acts then mutates`;}}}
+  const toRemove=new Set([...toDestroy,...devourVictims]);
+  [...toRemove].sort((a,b)=>b-a).forEach(i=>{if(editingEntityIndex===i)closeEntityEditor(false);else if(editingEntityIndex!==null&&editingEntityIndex>i)editingEntityIndex--;entities.splice(i,1);finalNext.splice(i,1);});
+  if(toRemove.size>0)buildLegend();
+  entities.forEach((e,i)=>{if(!e.stopped){e.trail.push({x:e.x+e.centX,y:e.y+e.centY});if(e.trail.length>TRAIL_LENGTH)e.trail.shift();}e.x=finalNext[i].nx;e.y=finalNext[i].ny;});
+  for(let f=flashes.length-1;f>=0;f--){flashes[f].age++;if(flashes[f].age>10)flashes.splice(f,1);}
+  tick++;updateStats();draw();
+}
+
+function updateStats(){document.getElementById('tickCount').textContent=tick;document.getElementById('collisionCount').textContent=totalCollisions;document.getElementById('statusDisplay').textContent=running?'RUNNING':'PAUSED';}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#030f03';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='rgba(0,80,20,0.3)';
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)ctx.fillRect(c*CELL+CELL/2-.5,r*CELL+CELL/2-.5,1,1);
+  ctx.strokeStyle='rgba(0,255,65,0.2)';ctx.lineWidth=1;ctx.strokeRect(.5,.5,canvas.width-1,canvas.height-1);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  entities.forEach(e=>{
+    const {trailR,trailG,trailB}=e.def;
+    ctx.font=`${FONT_SIZE}px 'Share Tech Mono',monospace`;
+    e.trail.forEach((t,i)=>{ctx.fillStyle=`rgba(${trailR},${trailG},${trailB},${(i/e.trail.length)*0.4})`;ctx.fillText('·',t.x*CELL+CELL/2,t.y*CELL+CELL/2);});
+  });
+  flashes.forEach(f=>{
+    const alpha=1-f.age/10,radius=(f.age+1)*CELL*1.5;
+    const fx=f.x*CELL+CELL/2,fy=f.y*CELL+CELL/2;
+    const rgb=hexToRgb(f.color);
+    const grd=ctx.createRadialGradient(fx,fy,0,fx,fy,radius);
+    grd.addColorStop(0,`rgba(${rgb.r},${rgb.g},${rgb.b},${alpha*0.6})`);grd.addColorStop(1,'transparent');
+    ctx.fillStyle=grd;ctx.beginPath();ctx.arc(fx,fy,radius,0,Math.PI*2);ctx.fill();
+    if(f.age<5){ctx.font=`bold ${Math.floor(FONT_SIZE*1.5)}px 'Share Tech Mono',monospace`;ctx.shadowColor=f.color;ctx.shadowBlur=16;ctx.fillStyle=`rgba(255,255,255,${alpha})`;ctx.fillText('*',fx,fy);ctx.shadowBlur=0;}
+  });
+  const fs=Math.max(5,Math.floor(CELL*0.78));
+  ctx.font=`bold ${fs}px 'Share Tech Mono',monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+  entities.forEach(e=>{
+    const rgb=hexToRgb(e.def.main);
+    const relSet=new Set(e.cells.map(c=>`${c.dx},${c.dy}`));
+    if(e.movementProperty==='destroy'){const pulse=0.18+0.12*Math.sin(tick*0.18);const gcx=(e.x+e.centX+.5)*CELL,gcy=(e.y+e.centY+.5)*CELL,auraR=Math.max(e.w,e.h)*CELL*3.5;const ag=ctx.createRadialGradient(gcx,gcy,0,gcx,gcy,auraR);ag.addColorStop(0,`rgba(255,0,0,${pulse})`);ag.addColorStop(1,'transparent');ctx.fillStyle=ag;ctx.fillRect(gcx-auraR,gcy-auraR,auraR*2,auraR*2);}
+    if(e.movementProperty==='stop'&&e.stopped){const pulse=0.10+0.08*Math.sin(tick*0.12);const gcx=(e.x+e.centX+.5)*CELL,gcy=(e.y+e.centY+.5)*CELL,auraR=Math.max(e.w,e.h)*CELL*2.5;const ag=ctx.createRadialGradient(gcx,gcy,0,gcx,gcy,auraR);ag.addColorStop(0,`rgba(255,221,0,${pulse})`);ag.addColorStop(1,'transparent');ctx.fillStyle=ag;ctx.fillRect(gcx-auraR,gcy-auraR,auraR*2,auraR*2);}
+    const gcx=(e.x+e.centX+.5)*CELL,gcy=(e.y+e.centY+.5)*CELL,glowR=Math.max(e.w,e.h)*CELL*1.6;
+    const grd=ctx.createRadialGradient(gcx,gcy,0,gcx,gcy,glowR);grd.addColorStop(0,e.def.glow);grd.addColorStop(1,'transparent');ctx.fillStyle=grd;ctx.fillRect(gcx-glowR,gcy-glowR,glowR*2,glowR*2);
+
+    // Speed trail — ghost cells at intermediate positions, fading toward origin
+    if (showSpeedTrail && e.speedTrail && e.speedTrail.length > 0) {
+      const steps = e.speedTrail.length;
+      e.speedTrail.forEach((tp, si) => {
+        // si=0 is closest to origin (most faded), si=steps-1 is just behind entity
+        const alpha = ((si + 1) / (steps + 1)) * 0.28;
+        ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+        e.cells.forEach(({dx,dy}) => {
+          const px = (tp.x + dx) * CELL, py = (tp.y + dy) * CELL;
+          ctx.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
+        });
+      });
+    }
+    e.cells.forEach(({dx,dy})=>{
+      const px=(e.x+dx)*CELL,py=(e.y+dy)*CELL;
+      ctx.fillStyle=`rgba(${rgb.r},${rgb.g},${rgb.b},0.10)`;ctx.fillRect(px+1,py+1,CELL-2,CELL-2);
+      ctx.strokeStyle=e.def.main;ctx.lineWidth=1.5;ctx.shadowColor=e.def.main;ctx.shadowBlur=6;ctx.beginPath();
+      if(!relSet.has(`${dx},${dy-1}`)){ctx.moveTo(px+1,py+1);ctx.lineTo(px+CELL-1,py+1);}
+      if(!relSet.has(`${dx},${dy+1}`)){ctx.moveTo(px+1,py+CELL-1);ctx.lineTo(px+CELL-1,py+CELL-1);}
+      if(!relSet.has(`${dx-1},${dy}`)){ctx.moveTo(px+1,py+1);ctx.lineTo(px+1,py+CELL-1);}
+      if(!relSet.has(`${dx+1},${dy}`)){ctx.moveTo(px+CELL-1,py+1);ctx.lineTo(px+CELL-1,py+CELL-1);}
+      ctx.stroke();ctx.shadowBlur=0;
+      ctx.shadowColor=e.def.main;ctx.shadowBlur=8;ctx.fillStyle=e.def.main;ctx.fillText('@',px+CELL/2,py+CELL/2);ctx.shadowBlur=0;
+    });
+    if(editingEntityIndex!==null&&entities[editingEntityIndex]===e){
+      const bb=boundingBox(e.cells);
+      const ex0=(e.x+bb.minX)*CELL,ey0=(e.y+bb.minY)*CELL,ex1=(e.x+bb.maxX+1)*CELL,ey1=(e.y+bb.maxY+1)*CELL;
+      const midX=Math.round((ex0+ex1)/2)+.5,midY=Math.round((ey0+ey1)/2)+.5;
+      ctx.save();ctx.globalCompositeOperation='source-over';ctx.setLineDash([]);
+      function glowLine(draw){ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.shadowColor='white';ctx.shadowBlur=12;ctx.lineWidth=3;draw();ctx.stroke();ctx.strokeStyle='#ffffff';ctx.shadowBlur=0;ctx.lineWidth=1;draw();ctx.stroke();}
+      glowLine(()=>{ctx.beginPath();ctx.rect(ex0+.5,ey0+.5,ex1-ex0-1,ey1-ey0-1);});
+      glowLine(()=>{ctx.beginPath();ctx.moveTo(midX,ey0);ctx.lineTo(midX,0);});
+      glowLine(()=>{ctx.beginPath();ctx.moveTo(midX,ey1);ctx.lineTo(midX,canvas.height);});
+      glowLine(()=>{ctx.beginPath();ctx.moveTo(ex0,midY);ctx.lineTo(0,midY);});
+      glowLine(()=>{ctx.beginPath();ctx.moveTo(ex1,midY);ctx.lineTo(canvas.width,midY);});
+      ctx.restore();
+    }
+  });
+}
+
+// --- Autosave ---
+function autosaveGame() {
+  try {
+    const pad=n=>String(n).padStart(2,'0');
+    const now=new Date();
+    const savedAt=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1}))};
+    localStorage.setItem('vectorion_autosave',JSON.stringify(data));
+    const toast=document.getElementById('autosaveToast');
+    if(toast){toast.style.opacity='1';clearTimeout(toast._hideTimer);toast._hideTimer=setTimeout(()=>{toast.style.opacity='0';},5000);}
+  } catch(e){}
+}
+
+// --- Game flow ---
+function readTypeCounts(){return{destroy:Math.max(0,Math.min(10,parseInt(document.getElementById('destroyCountInput').value)||0)),bounce:Math.max(0,Math.min(20,parseInt(document.getElementById('bounceCountInput').value)||0)),stop:Math.max(0,Math.min(10,parseInt(document.getElementById('stopCountInput').value)||0)),devour:Math.max(0,Math.min(10,parseInt(document.getElementById('devourCountInput').value)||0)),change:Math.max(0,Math.min(10,parseInt(document.getElementById('changeCountInput').value)||0))};}
+
+function startNewGame(){
+  diagonalMode=document.getElementById('diagonalToggle').checked;
+  showSpeedTrail=document.getElementById('speedTrailToggle').checked;
+  maxEntityW=Math.max(1,Math.min(8,parseInt(document.getElementById('maxWInput').value)||4));
+  maxEntityH=Math.max(1,Math.min(8,parseInt(document.getElementById('maxHInput').value)||4));
+  maxSpeed=Math.max(1,Math.min(10,parseInt(document.getElementById('maxSpeedInput').value)||3));
+  entities=makeEntities(readTypeCounts());flashes.length=0;tick=0;totalCollisions=0;
+  running=true;overlay.classList.add('hidden');entitiesSection.style.display='';
+  buildLegend();updateStats();intervalId=setInterval(step,speed);
+  document.getElementById('statusDisplay').textContent='RUNNING';
+}
+
+function toggleRunning(){
+  if(!running&&tick===0)return;
+  running=!running;
+  if(running){intervalId=setInterval(step,speed);}
+  else{clearInterval(intervalId);intervalId=null;autosaveGame();}
+  document.getElementById('statusDisplay').textContent=running?'RUNNING':'PAUSED';
+}
+
+function setSpeed(s){speed=Math.max(20,Math.min(500,s));if(running){clearInterval(intervalId);intervalId=setInterval(step,speed);}}
+
+let hasActiveGame=false;
+let currentGameName='';
+
+function showMainMenu(){
+  const btn=document.getElementById('menuContinue');
+  if(hasActiveGame){btn.disabled=false;document.getElementById('continueSubtext').textContent=currentGameName||'resume current session';}
+  else{btn.disabled=true;document.getElementById('continueSubtext').textContent='no active session';}
+  // check localStorage for autosave
+  if(!hasActiveGame){try{const as=localStorage.getItem('vectorion_autosave');if(as){const d=JSON.parse(as);if(d.entities&&d.entities.length){btn.disabled=false;document.getElementById('continueSubtext').textContent=`autosave: ${d.gameName||'VECTORION'}`;}}}catch(e){}}
+  document.getElementById('mainMenu').style.display='';
+  document.getElementById('configScreen').style.display='none';
+  overlay.classList.remove('hidden');
+  entitiesSection.style.display='none';
+}
+
+// Word list for random game names
+const WORD_LIST=['ALPHA','BETA','GAMMA','DELTA','ECHO','FLUX','NOVA','ZERO','APEX','VOID','STORM','DRIFT','BLAZE','FROST','SURGE','EMBER','CRISP','PHASE','CHAIN','PRISM','ORION','NEXUS','HELIX','VORTEX','PULSE','SIGMA','TITAN','CIPHER','GHOST','VECTOR','IRON','SOLAR','LUNAR','COSMIC','PIXEL','ROGUE','NEON','HYDRA','ZENITH','FORGE','COMET','SPARK','BLADE','ORBIT','GRID','ZONE','SHIFT','WARP','CLASH'];
+function randomGameName(){const pick=()=>WORD_LIST[Math.floor(Math.random()*WORD_LIST.length)];let words;do{words=[pick(),pick(),pick()];}while(new Set(words).size<3);return words.join(' ');}
+function setGameNameDisplay(name){currentGameName=name;const disp=document.getElementById('gameNameDisplay'),inp=document.getElementById('gameNameInput'),header=document.getElementById('headerGameName');if(disp)disp.textContent=name;if(header)header.textContent=name;if(inp&&inp.style.display!=='none')inp.value=name;}
+function startGameNameEdit(){const disp=document.getElementById('gameNameDisplay'),inp=document.getElementById('gameNameInput');inp.value=currentGameName;disp.style.display='none';inp.style.display='';inp.focus();inp.select();}
+function commitGameNameEdit(){const disp=document.getElementById('gameNameDisplay'),inp=document.getElementById('gameNameInput');const raw=inp.value.trim().toUpperCase();setGameNameDisplay(raw.length>0?raw:currentGameName);inp.style.display='none';disp.style.display='';}
+document.getElementById('gameNameDisplay').addEventListener('click',startGameNameEdit);
+document.getElementById('gameNameEditBtn').addEventListener('click',startGameNameEdit);
+document.getElementById('gameNameInput').addEventListener('blur',commitGameNameEdit);
+document.getElementById('gameNameInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitGameNameEdit();}if(e.key==='Escape'){e.preventDefault();document.getElementById('gameNameInput').style.display='none';document.getElementById('gameNameDisplay').style.display='';}e.stopPropagation();});
+
+function showConfigScreen(){document.getElementById('mainMenu').style.display='none';document.getElementById('configScreen').style.display='';setGameNameDisplay(randomGameName());}
+
+function restart(){clearInterval(intervalId);intervalId=null;running=false;tick=0;totalCollisions=0;flashes.length=0;closeEntityEditor(false);updateStats();draw();showMainMenu();}
+
+window.addEventListener('keydown',e=>{
+  const numberInputs=['destroyCountInput','bounceCountInput','stopCountInput','maxWInput','maxHInput','devourCountInput','changeCountInput'];
+  if(numberInputs.includes(document.activeElement.id))return;
+  const configVisible=document.getElementById('configScreen').style.display!=='none'&&!overlay.classList.contains('hidden');
+  if(configVisible){if(e.code==='Space'){e.preventDefault();hasActiveGame=true;startNewGame();return;}if(e.code==='Escape'){e.preventDefault();showMainMenu();return;}}
+  if(e.code==='Escape'){e.preventDefault();restart();}
+  if(e.code==='Space'){e.preventDefault();toggleRunning();}
+  if(overlay.classList.contains('hidden')&&!running&&e.key==='Enter'&&!entityEditor.classList.contains('visible')){e.preventDefault();step();}
+  if(e.key==='+'||e.key==='=')setSpeed(speed-20);
+  if(e.key==='-')setSpeed(speed+20);
+});
+
+// Menu navigation
+document.getElementById('menuContinue').addEventListener('click',()=>{
+  if(hasActiveGame){overlay.classList.add('hidden');entitiesSection.style.display='';running=true;intervalId=setInterval(step,speed);document.getElementById('statusDisplay').textContent='RUNNING';return;}
+  // try loading autosave
+  try{const as=localStorage.getItem('vectorion_autosave');if(as){importEntities(as);return;}}catch(e){}
+});
+document.getElementById('menuLoad').addEventListener('click',()=>{document.getElementById('importFileInput').click();});
+document.getElementById('menuNew').addEventListener('click',showConfigScreen);
+document.getElementById('configBack').addEventListener('click',showMainMenu);
+document.getElementById('configStart').addEventListener('click',()=>{hasActiveGame=true;startNewGame();});
+
+function wireSpinner(bm,inp,bp,min,max,def){const i=document.getElementById(inp);document.getElementById(bm).addEventListener('click',()=>{i.value=Math.max(min,(parseInt(i.value)||def)-1);});document.getElementById(bp).addEventListener('click',()=>{i.value=Math.min(max,(parseInt(i.value)||def)+1);});i.addEventListener('change',()=>{i.value=Math.max(min,Math.min(max,parseInt(i.value)||def));});}
+wireSpinner('btnDestroyMinus','destroyCountInput','btnDestroyPlus',0,10,1);
+wireSpinner('btnBounceMinus','bounceCountInput','btnBouncePlus',0,20,10);
+wireSpinner('btnStopMinus','stopCountInput','btnStopPlus',0,10,2);
+wireSpinner('btnDevourMinus','devourCountInput','btnDevourPlus',0,10,2);
+wireSpinner('btnChangeMinus','changeCountInput','btnChangePlus',0,10,2);
+wireSpinner('btnWMinus','maxWInput','btnWPlus',1,8,4);
+wireSpinner('btnHMinus','maxHInput','btnHPlus',1,8,4);
+wireSpinner('btnMaxSpeedMinus','maxSpeedInput','btnMaxSpeedPlus',1,10,3);
+
+document.getElementById('ctrlSpace').addEventListener('click',()=>toggleRunning());
+document.getElementById('ctrlEsc').addEventListener('click',()=>restart());
+document.getElementById('ctrlFaster').addEventListener('click',()=>setSpeed(speed-20));
+document.getElementById('ctrlSlower').addEventListener('click',()=>setSpeed(speed+20));
+
+// Entity editor
+function updateEditorSpeed(){
+  if(editingEntityIndex===null)return;
+  const e=entities[editingEntityIndex];
+  document.getElementById('editorSpeedVal').textContent=e.speed;
+  document.getElementById('editorSpeedRange').textContent=`/ ${maxSpeed}`;
+  // Dim buttons at limits
+  document.getElementById('editorSpeedMinus').style.opacity=e.speed<=1?'0.3':'1';
+  document.getElementById('editorSpeedPlus').style.opacity=e.speed>=maxSpeed?'0.3':'1';
+}
+
+function openEntityEditor(entityIndex){
+  const alreadyOpen=entityEditor.classList.contains('visible');
+  editingEntityIndex=entityIndex;const e=entities[entityIndex];selectedProp=e.movementProperty;
+  if(!alreadyOpen){originalProp=e.movementProperty;}else{originalProp=e.movementProperty;}
+  editorNameInput.style.display='none';editorTitle.style.display='';editorTitle.textContent=e.def.label;editorTitle.style.color=e.def.main;editorTitle.style.textShadow=`0 0 10px ${e.def.main}`;
+  const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='';
+  const cb=document.querySelector('.editor-prop-btn[data-prop="change"]');
+  if(cb){const ct=e.movementProperty==='change'&&e.changeTarget?e.changeTarget.toUpperCase():'?';cb.textContent=`⟳ CHANGE-[${ct}] — acts then mutates`;}
+  document.querySelectorAll('.editor-prop-btn').forEach(btn=>btn.classList.toggle('selected',btn.dataset.prop===selectedProp));
+  updateEditorSpeed();
+  entityEditor.classList.add('visible');buildLegend();draw();
+}
+
+// Speed +/− buttons — apply immediately
+document.getElementById('editorSpeedMinus').addEventListener('click',()=>{
+  if(editingEntityIndex===null)return;
+  const e=entities[editingEntityIndex];
+  e.speed=Math.max(1,e.speed-1);
+  updateEditorSpeed();
+  buildLegend();
+});
+
+document.getElementById('editorSpeedPlus').addEventListener('click',()=>{
+  if(editingEntityIndex===null)return;
+  const e=entities[editingEntityIndex];
+  e.speed=Math.min(maxSpeed,e.speed+1);
+  updateEditorSpeed();
+  buildLegend();
+});
+
+function closeEntityEditor(revert){
+  if(revert&&editingEntityIndex!==null&&originalProp){
+    const e=entities[editingEntityIndex];
+    if(e&&e.movementProperty!==originalProp){const saved=e.def.label;e.movementProperty=originalProp;e.def=makeEntityDef(editingEntityIndex,entities.length,originalProp);e.def.label=saved;if(originalProp!=='stop')e.stopped=false;e.trail=[];buildLegend();}
+  }
+  entityEditor.classList.remove('visible');editingEntityIndex=null;selectedProp=null;originalProp=null;wasRunningBeforeEdit=false;buildLegend();draw();
+}
+
+// Inline name editing
+function startNameEdit(){
+  if(editingEntityIndex===null)return;const e=entities[editingEntityIndex];
+  editorNameInput.value=e.def.label;editorNameInput.style.color=e.def.main;
+  editorTitle.style.display='none';editorNameInput.style.display='';
+  const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='none';
+  editorNameInput.focus();editorNameInput.select();
+}
+function commitNameEdit(){
+  if(editingEntityIndex===null)return;const e=entities[editingEntityIndex];
+  const raw=editorNameInput.value.trim().toUpperCase();if(raw.length>0)e.def.label=raw;
+  editorNameInput.style.display='none';editorTitle.style.display='';editorTitle.textContent=e.def.label;
+  const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='';
+  buildLegend();
+}
+editorTitle.addEventListener('click',startNameEdit);
+document.getElementById('editorRenameHint').addEventListener('click',startNameEdit);
+editorNameInput.addEventListener('blur',commitNameEdit);
+editorNameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitNameEdit();}if(e.key==='Escape'){e.preventDefault();e.stopPropagation();editorNameInput.style.display='none';editorTitle.style.display='';const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='';}});
+
+// Prop buttons
+document.querySelectorAll('.editor-prop-btn').forEach(btn=>{btn.addEventListener('click',()=>{
+  selectedProp=btn.dataset.prop;document.querySelectorAll('.editor-prop-btn').forEach(b=>b.classList.toggle('selected',b.dataset.prop===selectedProp));
+  if(editingEntityIndex!==null){const e=entities[editingEntityIndex];if(e.movementProperty!==selectedProp){const saved=e.def.label;e.movementProperty=selectedProp;e.def=makeEntityDef(editingEntityIndex,entities.length,selectedProp);e.def.label=saved;if(selectedProp!=='stop')e.stopped=false;if(selectedProp==='change'&&!e.changeTarget)e.changeTarget=randomChangeTarget(null);e.trail=[];editorTitle.style.color=e.def.main;editorTitle.style.textShadow=`0 0 10px ${e.def.main}`;editorNameInput.style.color=e.def.main;buildLegend();if(!running)draw();}}
+});});
+document.getElementById('editorConfirm').addEventListener('click',()=>closeEntityEditor(false));
+document.getElementById('editorCancel').addEventListener('click',()=>closeEntityEditor(true));
+window.addEventListener('keydown',e=>{
+  if(entityEditor.classList.contains('visible')){
+    if(e.code==='Escape'){e.preventDefault();closeEntityEditor(true);}
+    if(e.code==='Enter'){e.preventDefault();closeEntityEditor(false);}
+  }
+});
+
+// Canvas click
+canvas.addEventListener('click',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const col=Math.floor((e.clientX-rect.left)/CELL),row=Math.floor((e.clientY-rect.top)/CELL);
+  const hit=entities.findIndex(ent=>ent.cells.some(c=>ent.x+c.dx===col&&ent.y+c.dy===row));
+  if(hit!==-1)openEntityEditor(hit);
+  else if(entityEditor.classList.contains('visible'))closeEntityEditor(false);
+});
+canvas.addEventListener('mousemove',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const col=Math.floor((e.clientX-rect.left)/CELL),row=Math.floor((e.clientY-rect.top)/CELL);
+  canvas.style.cursor=entities.some(ent=>ent.cells.some(c=>ent.x+c.dx===col&&ent.y+c.dy===row))?'pointer':'default';
+});
+
+// Resize handle
+let isDragging=false;
+const resizeHandle=document.getElementById('resizeHandle');
+resizeHandle.addEventListener('mousedown',e=>{isDragging=true;resizeHandle.classList.add('dragging');document.body.style.cursor='col-resize';document.body.style.userSelect='none';e.preventDefault();});
+window.addEventListener('mousemove',e=>{if(!isDragging)return;const row=document.querySelector('.middle-row').getBoundingClientRect();leftColW=Math.round(e.clientX-row.left);resizeCanvas();});
+window.addEventListener('mouseup',()=>{if(!isDragging)return;isDragging=false;resizeHandle.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect='';});
+
+// Export / Import
+function exportEntities(){
+  if(running){running=false;clearInterval(intervalId);intervalId=null;document.getElementById('statusDisplay').textContent='PAUSED';}
+  const pad=n=>String(n).padStart(2,'0');const now=new Date();
+  const savedAt=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1}))};
+  const json=JSON.stringify(data,null,2);const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);
+  const safeName=(currentGameName||'vectorion').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  const a=document.createElement('a');a.href=url;a.download=`${safeName}_tick${tick}.json`;a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},100);
+}
+
+const VALID_PROPERTIES = new Set(['destroy','bounce','stop','devour','change']);
+
+function showImportError(lines) {
+  const msg = Array.isArray(lines) ? lines.join('\n') : lines;
+  const el = document.getElementById('importErrorMsg');
+  el.innerHTML = msg.split('\n').map(l => `<div>• ${l}</div>`).join('');
+  const b = document.getElementById('importErrorBackdrop');
+  b.style.opacity = '1'; b.style.pointerEvents = 'all';
+}
+
+function validateImportData(data) {
+  const errors = [];
+
+  // Top-level fields
+  if (typeof data !== 'object' || data === null) { errors.push('File is not a valid JSON object'); return errors; }
+  if (!data.version)                              errors.push('Missing field: version');
+  if (!Array.isArray(data.entities))             { errors.push('Missing or invalid field: entities (must be an array)'); return errors; }
+  if (data.entities.length === 0)                errors.push('entities array is empty — no entities to load');
+
+  // Per-entity validation
+  data.entities.forEach((e, i) => {
+    const id = e.name ? `"${e.name}" (index ${i})` : `entity at index ${i}`;
+    if (typeof e.name !== 'string' || e.name.trim() === '')                     errors.push(`${id}: missing or empty name`);
+    if (!VALID_PROPERTIES.has(e.movementProperty))                              errors.push(`${id}: invalid movementProperty "${e.movementProperty}"`);
+    if (typeof e.x !== 'number' || e.x < 0 || e.x >= 100)                      errors.push(`${id}: x out of range (${e.x})`);
+    if (typeof e.y !== 'number' || e.y < 0 || e.y >= 100)                      errors.push(`${id}: y out of range (${e.y})`);
+    if (!e.dir || typeof e.dir.dx !== 'number' || typeof e.dir.dy !== 'number') errors.push(`${id}: missing or invalid dir`);
+    if (!Array.isArray(e.cells) || e.cells.length === 0)                        errors.push(`${id}: cells must be a non-empty array`);
+    else e.cells.forEach((c, ci) => {
+      if (typeof c.dx !== 'number' || typeof c.dy !== 'number')                 errors.push(`${id}: cell[${ci}] missing dx/dy`);
+    });
+    if (e.movementProperty === 'change' && e.changeTarget !== null && !VALID_PROPERTIES.has(e.changeTarget))
+      errors.push(`${id}: invalid changeTarget "${e.changeTarget}"`);
+  });
+
+  return errors;
+}
+
+function importEntities(text) {
+  let data;
+  try { data = JSON.parse(text); }
+  catch (e) { showImportError(['File is not valid JSON: ' + e.message]); return; }
+
+  const errors = validateImportData(data);
+  if (errors.length > 0) { showImportError(errors); return; }
+
+  running = false; clearInterval(intervalId); intervalId = null;
+
+  const imported = data.entities.map(src => {
+    const prop = src.movementProperty;
+    const col  = ROLE_COLORS[prop] || ROLE_COLORS['bounce'];
+    const cells = src.cells;
+    const bb    = boundingBox(cells);
+    const d     = src.dir;
+    const validDir = ALL_8_DIRS.find(v => v.dx === d.dx && v.dy === d.dy) || { dx: 1, dy: 0 };
+    return {
+      x: src.x, y: src.y, cells,
+      w: bb.maxX - bb.minX + 1, h: bb.maxY - bb.minY + 1,
+      centX: cells.reduce((s, c) => s + c.dx, 0) / cells.length,
+      centY: cells.reduce((s, c) => s + c.dy, 0) / cells.length,
+      dir: validDir, trail: [],
+      def: { label: src.name.trim().toUpperCase(), main: col.main, glow: col.glow, trailR: col.trailR, trailG: col.trailG, trailB: col.trailB },
+      movementProperty: prop,
+      changeTarget: src.changeTarget || (prop === 'change' ? randomChangeTarget(null) : null),
+      stopped: src.stopped || false,
+      collisions: 0,
+      speed: (typeof src.speed === 'number' && src.speed >= 1) ? src.speed : 1,
+    };
+  });
+
+  entities = imported;
+  tick = data.tick || 0;
+  totalCollisions = 0;
+  diagonalMode = data.diagonalMode !== undefined ? data.diagonalMode : true;
+  maxSpeed = (typeof data.maxSpeed === 'number' && data.maxSpeed >= 1) ? data.maxSpeed : 3;
+  flashes.length = 0;
+  currentGameName = data.gameName || 'VECTORION';
+  const headerEl = document.getElementById('headerGameName');
+  if (headerEl) headerEl.textContent = currentGameName;
+  hasActiveGame = true;
+  closeEntityEditor(false);
+  overlay.classList.add('hidden');
+  entitiesSection.style.display = '';
+  buildLegend(); updateStats(); resizeCanvas();
+
+  // Show success modal
+  const backdrop = document.getElementById('importSuccessBackdrop');
+  document.getElementById('importSuccessName').textContent = currentGameName;
+  document.getElementById('importSuccessTick').textContent = `TICK ${tick}`;
+  document.getElementById('importSuccessDate').textContent = data.savedAt ? `SAVED ${data.savedAt}` : '';
+  backdrop.style.opacity = '1'; backdrop.style.pointerEvents = 'all';
+  document.getElementById('statusDisplay').textContent = 'PAUSED';
+}
+
+function closeImportSuccess(){const b=document.getElementById('importSuccessBackdrop');b.style.opacity='0';b.style.pointerEvents='none';}
+document.getElementById('importSuccessStart').addEventListener('click',closeImportSuccess);
+window.addEventListener('keydown',e=>{const b=document.getElementById('importSuccessBackdrop');if(b.style.pointerEvents==='all'){if(e.code==='Space'){e.preventDefault();e.stopImmediatePropagation();closeImportSuccess();}}},true);
+
+function closeImportError(){const b=document.getElementById('importErrorBackdrop');b.style.opacity='0';b.style.pointerEvents='none';}
+document.getElementById('importErrorClose').addEventListener('click',closeImportError);
+document.getElementById('importErrorBackdrop').addEventListener('click',e=>{if(e.target===document.getElementById('importErrorBackdrop'))closeImportError();});
+window.addEventListener('keydown',e=>{const b=document.getElementById('importErrorBackdrop');if(b.style.pointerEvents==='all'&&e.code==='Escape'){e.preventDefault();e.stopImmediatePropagation();closeImportError();}},true);
+
+document.getElementById('ctrlExport').addEventListener('click',exportEntities);
+document.getElementById('ctrlImport').addEventListener('click',()=>document.getElementById('importFileInput').click());
+document.getElementById('importFileInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>importEntities(ev.target.result);r.readAsText(f);e.target.value='';});
+
+// Help
+const helpBackdrop=document.getElementById('helpBackdrop');
+let wasRunningBeforeHelp=false;
+function openHelp(){wasRunningBeforeHelp=running;if(running){running=false;clearInterval(intervalId);intervalId=null;document.getElementById('statusDisplay').textContent='PAUSED';}helpBackdrop.classList.add('visible');}
+function closeHelp(){helpBackdrop.classList.remove('visible');if(wasRunningBeforeHelp){running=true;intervalId=setInterval(step,speed);document.getElementById('statusDisplay').textContent='RUNNING';}wasRunningBeforeHelp=false;}
+document.getElementById('ctrlHelp').addEventListener('click',openHelp);
+document.getElementById('helpClose').addEventListener('click',closeHelp);
+helpBackdrop.addEventListener('click',e=>{if(e.target===helpBackdrop)closeHelp();});
+window.addEventListener('keydown',e=>{if(helpBackdrop.classList.contains('visible')&&e.code==='Escape'){e.preventDefault();e.stopImmediatePropagation();closeHelp();}},true);
+
+window.addEventListener('resize',()=>{leftColW=null;resizeCanvas();});
+
+resizeCanvas();buildLegend();updateStats();showMainMenu();draw();
+</script>
+</body>
+</html>
