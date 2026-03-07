@@ -736,7 +736,7 @@
   <div class="controls">
     <span><button class="key" id="ctrlSpace">SPACE</button> START / PAUSE</span>
     <span><button class="key">ENTER</button> STEP (when paused)</span>
-    <span><button class="key" id="ctrlEsc">ESC</button> RESTART</span>
+    <span><button class="key" id="ctrlEsc">ESC</button> OPTIONS</span>
     <span><button class="key" id="ctrlFaster">+</button> FASTER &nbsp;<button class="key" id="ctrlSlower">-</button> SLOWER</span>
   </div>
   <div style="margin-left:auto;display:flex;gap:10px;align-items:center;">
@@ -1164,12 +1164,23 @@ function showConfigScreen(){document.getElementById('mainMenu').style.display='n
 
 function restart(){clearInterval(intervalId);intervalId=null;running=false;tick=0;totalCollisions=0;flashes.length=0;closeEntityEditor(false);updateStats();draw();showMainMenu();}
 
+function openOptions(){clearInterval(intervalId);intervalId=null;running=false;closeEntityEditor(false);updateStats();draw();showMainMenu();}
+
+// Capture-phase: handle ESC during game first so it always opens options (not consumed by focus/bubble order)
+window.addEventListener('keydown',e=>{
+  if(e.code!=='Escape')return;
+  const numberInputs=['destroyCountInput','bounceCountInput','stopCountInput','maxWInput','maxHInput','devourCountInput','changeCountInput'];
+  if(document.activeElement&&numberInputs.includes(document.activeElement.id))return;
+  if(entityEditor.classList.contains('visible'))return;
+  if(overlay.classList.contains('hidden')){e.preventDefault();e.stopImmediatePropagation();openOptions();}
+},true);
+
 window.addEventListener('keydown',e=>{
   const numberInputs=['destroyCountInput','bounceCountInput','stopCountInput','maxWInput','maxHInput','devourCountInput','changeCountInput'];
   if(numberInputs.includes(document.activeElement.id))return;
   const configVisible=document.getElementById('configScreen').style.display!=='none'&&!overlay.classList.contains('hidden');
   if(configVisible){if(e.code==='Space'){e.preventDefault();hasActiveGame=true;startNewGame();return;}if(e.code==='Escape'){e.preventDefault();showMainMenu();return;}}
-  if(e.code==='Escape'){e.preventDefault();restart();}
+  if(e.code==='Escape'){e.preventDefault();if(!overlay.classList.contains('hidden'))restart();}
   if(e.code==='Space'){e.preventDefault();toggleRunning();}
   if(overlay.classList.contains('hidden')&&!running&&e.key==='Enter'&&!entityEditor.classList.contains('visible')){e.preventDefault();step();}
   if(e.key==='+'||e.key==='=')setSpeed(speed-20);
@@ -1198,7 +1209,7 @@ wireSpinner('btnHMinus','maxHInput','btnHPlus',1,8,4);
 wireSpinner('btnMaxSpeedMinus','maxSpeedInput','btnMaxSpeedPlus',1,10,3);
 
 document.getElementById('ctrlSpace').addEventListener('click',()=>toggleRunning());
-document.getElementById('ctrlEsc').addEventListener('click',()=>restart());
+document.getElementById('ctrlEsc').addEventListener('click',()=>openOptions());
 document.getElementById('ctrlFaster').addEventListener('click',()=>setSpeed(speed-20));
 document.getElementById('ctrlSlower').addEventListener('click',()=>setSpeed(speed+20));
 
