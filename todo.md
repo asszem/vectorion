@@ -1,8 +1,7 @@
 # Work in Progress
 
-* feat: initial game speed set in New Game menu
 * fix: game options menu to show existing entities with the ability to change their numbers
-* fix: remove the O option, Esc and Game name click should open the Game Options menu
+* fix: new game menu should have the same default values, regardles of any changes
 * feat: rename properties to Reactions. Destroy, Bounce, Stop, Devour, Change
 * feat: game log - display interaction events - "Entity 1 Destroyed Entity 2 at Tick 231"
 * feat: game log - add game log to savegame (localStorage and json file save)

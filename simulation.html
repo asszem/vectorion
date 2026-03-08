@@ -471,7 +471,7 @@
   .entity-count-btn:hover { color: var(--green); }
 
   #entityCountInput, #maxWInput, #maxHInput,
-  #destroyCountInput, #bounceCountInput, #stopCountInput, #devourCountInput, #changeCountInput, #maxSpeedInput {
+  #destroyCountInput, #bounceCountInput, #stopCountInput, #devourCountInput, #changeCountInput, #maxSpeedInput, #initSpeedInput {
     background: none; border: none;
     border-left: 1px solid var(--green-dim); border-right: 1px solid var(--green-dim);
     color: var(--green); font-family: 'VT323', monospace; font-size: 1.4rem;
@@ -485,10 +485,12 @@
   #stopCountInput::-webkit-inner-spin-button, #stopCountInput::-webkit-outer-spin-button,
   #devourCountInput::-webkit-inner-spin-button, #devourCountInput::-webkit-outer-spin-button,
   #changeCountInput::-webkit-inner-spin-button, #changeCountInput::-webkit-outer-spin-button,
-  #maxSpeedInput::-webkit-inner-spin-button, #maxSpeedInput::-webkit-outer-spin-button { -webkit-appearance: none; }
+  #maxSpeedInput::-webkit-inner-spin-button, #maxSpeedInput::-webkit-outer-spin-button,
+  #initSpeedInput::-webkit-inner-spin-button, #initSpeedInput::-webkit-outer-spin-button { -webkit-appearance: none; }
   #entityCountInput[type=number], #maxWInput[type=number], #maxHInput[type=number],
   #destroyCountInput[type=number], #bounceCountInput[type=number], #stopCountInput[type=number],
-  #devourCountInput[type=number], #changeCountInput[type=number], #maxSpeedInput[type=number] { -moz-appearance: textfield; }
+  #devourCountInput[type=number], #changeCountInput[type=number], #maxSpeedInput[type=number],
+  #initSpeedInput[type=number] { -moz-appearance: textfield; }
 
   .toggle-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0 6px; }
   .toggle-label { font-size: 0.7rem; color: var(--green-dim); letter-spacing: 0.15em; }
@@ -707,6 +709,17 @@
           <button class="entity-count-btn" id="btnMaxSpeedPlus">+</button>
         </div>
       </div>
+      <div class="config-prop-row">
+        <div class="config-prop-info">
+          <span class="config-prop-name" style="color:var(--green-dim);">SIM SPEED</span>
+          <span class="config-prop-desc">Simulation speed (1–25, higher = faster).</span>
+        </div>
+        <div class="entity-input-wrap">
+          <button class="entity-count-btn" id="btnInitSpeedMinus">−</button>
+          <input type="number" id="initSpeedInput" value="20" min="1" max="25">
+          <button class="entity-count-btn" id="btnInitSpeedPlus">+</button>
+        </div>
+      </div>
     </div>
     <div class="toggle-row" style="margin-top:16px;">
       <span class="toggle-label">DIAGONAL MOVEMENT:</span>
@@ -755,11 +768,11 @@
       <div class="config-prop-row">
         <div class="config-prop-info">
           <span class="config-prop-name" style="color:var(--green-dim);">SIM SPEED</span>
-          <span class="config-prop-desc">Tick delay in ms (lower = faster). Applies immediately.</span>
+          <span class="config-prop-desc">Simulation speed (1–25, higher = faster). Applies immediately.</span>
         </div>
         <div class="entity-input-wrap">
           <button class="entity-count-btn" id="optionsSpeedMinus">−</button>
-          <input type="number" id="optionsSpeedInput" value="80" min="20" max="500" step="10">
+          <input type="number" id="optionsSpeedInput" value="20" min="1" max="25">
           <button class="entity-count-btn" id="optionsSpeedPlus">+</button>
         </div>
       </div>
@@ -790,8 +803,8 @@
   <div class="controls">
     <span><button class="key" id="ctrlSpace">SPACE</button> START / PAUSE</span>
     <span><button class="key">ENTER</button> STEP (when paused)</span>
-    <span><button class="key" id="ctrlEsc">ESC</button> / <button class="key">O</button> OPTIONS</span>
-    <span><button class="key" id="ctrlFaster">+</button> FASTER &nbsp;<button class="key" id="ctrlSlower">-</button> SLOWER</span>
+    <span><button class="key" id="ctrlEsc">ESC</button> Options</span>
+    <span>SLOWER <button class="key" id="ctrlSlower">-</button> <span id="speedDisplay" style="font-family:'Share Tech Mono',monospace;color:var(--green);min-width:1.6em;display:inline-block;text-align:center;">20</span> <button class="key" id="ctrlFaster">+</button> FASTER</span>
   </div>
   <div style="margin-left:auto;display:flex;gap:10px;align-items:center;">
     <button class="key" id="ctrlExport">EXPORT</button>
@@ -944,7 +957,7 @@ const gameArea = document.getElementById('gameArea');
 const entitiesSection = document.getElementById('entitiesSection');
 
 let entities = makeEntities({destroy:1,bounce:10,stop:2,devour:2,change:2});
-let running=false, tick=0, totalCollisions=0, intervalId=null, speed=80, CELL, FONT_SIZE;
+let running=false, tick=0, totalCollisions=0, intervalId=null, speed=120, CELL, FONT_SIZE;
 
 const TOP_H=44, BOT_H=36, PAD_COL=20;
 let leftColW=null;
@@ -1091,7 +1104,7 @@ function step() {
   tick++;updateStats();draw();
 }
 
-function updateStats(){document.getElementById('tickCount').textContent=tick;document.getElementById('collisionCount').textContent=totalCollisions;document.getElementById('statusDisplay').textContent=running?'RUNNING':'PAUSED';}
+function updateStats(){document.getElementById('tickCount').textContent=tick;document.getElementById('collisionCount').textContent=totalCollisions;document.getElementById('statusDisplay').textContent=running?'RUNNING':'PAUSED';document.getElementById('speedDisplay').textContent=speedToLevel(speed);}
 
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -1198,6 +1211,8 @@ function startNewGame(){
   maxEntityW=Math.max(1,Math.min(8,parseInt(document.getElementById('maxWInput').value)||4));
   maxEntityH=Math.max(1,Math.min(8,parseInt(document.getElementById('maxHInput').value)||4));
   maxSpeed=Math.max(1,Math.min(10,parseInt(document.getElementById('maxSpeedInput').value)||3));
+  speed=levelToMs(Math.max(1,Math.min(25,parseInt(document.getElementById('initSpeedInput').value)||20)));
+  document.getElementById('optionsSpeedInput').value=String(speedToLevel(speed));
   entities=makeEntities(readTypeCounts());flashes.length=0;tick=0;totalCollisions=0;
   running=true;overlay.classList.add('hidden');entitiesSection.style.display='';
   buildLegend();updateStats();intervalId=setInterval(step,speed);
@@ -1214,7 +1229,9 @@ function toggleRunning(){
   document.getElementById('statusDisplay').textContent=running?'RUNNING':'PAUSED';
 }
 
-function setSpeed(s){speed=Math.max(20,Math.min(500,s));if(running){clearInterval(intervalId);intervalId=setInterval(step,speed);}}
+function speedToLevel(ms){return(520-ms)/20;}
+function levelToMs(level){return 520-level*20;}
+function setSpeed(s){speed=Math.max(20,Math.min(500,s));if(running){clearInterval(intervalId);intervalId=setInterval(step,speed);}const inp=document.getElementById('optionsSpeedInput');if(inp)inp.value=String(speedToLevel(speed));updateStats();}
 
 let hasActiveGame=false;
 let currentGameName='';
@@ -1267,7 +1284,7 @@ function showGameOptions(){
   entitiesSection.style.display='none';
 
   document.getElementById('optionsEntityCount').textContent=String(entities.length);
-  document.getElementById('optionsSpeedInput').value=String(speed);
+  document.getElementById('optionsSpeedInput').value=String(speedToLevel(speed));
   document.getElementById('optionsDiagonalToggle').checked=!!diagonalMode;
   const disp=document.getElementById('optionsGameNameDisplay');
   const inp=document.getElementById('optionsGameNameInput');
@@ -1317,7 +1334,7 @@ document.getElementById('menuNew').addEventListener('click',showConfigScreen);
 document.getElementById('configBack').addEventListener('click',showMainMenu);
 document.getElementById('configStart').addEventListener('click',()=>{hasActiveGame=true;startNewGame();});
 
-function wireSpinner(bm,inp,bp,min,max,def){const i=document.getElementById(inp);document.getElementById(bm).addEventListener('click',()=>{i.value=Math.max(min,(parseInt(i.value)||def)-1);});document.getElementById(bp).addEventListener('click',()=>{i.value=Math.min(max,(parseInt(i.value)||def)+1);});i.addEventListener('change',()=>{i.value=Math.max(min,Math.min(max,parseInt(i.value)||def));});}
+function wireSpinner(bm,inp,bp,min,max,def,step=1){const i=document.getElementById(inp);document.getElementById(bm).addEventListener('click',()=>{i.value=Math.max(min,(parseInt(i.value)||def)-step);});document.getElementById(bp).addEventListener('click',()=>{i.value=Math.min(max,(parseInt(i.value)||def)+step);});i.addEventListener('change',()=>{i.value=Math.max(min,Math.min(max,parseInt(i.value)||def));});}
 wireSpinner('btnDestroyMinus','destroyCountInput','btnDestroyPlus',0,10,1);
 wireSpinner('btnBounceMinus','bounceCountInput','btnBouncePlus',0,20,10);
 wireSpinner('btnStopMinus','stopCountInput','btnStopPlus',0,10,2);
@@ -1326,6 +1343,7 @@ wireSpinner('btnChangeMinus','changeCountInput','btnChangePlus',0,10,2);
 wireSpinner('btnWMinus','maxWInput','btnWPlus',1,8,4);
 wireSpinner('btnHMinus','maxHInput','btnHPlus',1,8,4);
 wireSpinner('btnMaxSpeedMinus','maxSpeedInput','btnMaxSpeedPlus',1,10,3);
+wireSpinner('btnInitSpeedMinus','initSpeedInput','btnInitSpeedPlus',1,25,20);
 
 // Game options wiring
 function startOptionsNameEdit(){
@@ -1348,9 +1366,9 @@ document.getElementById('optionsGameNameEditBtn').addEventListener('click',start
 document.getElementById('optionsGameNameInput').addEventListener('blur',commitOptionsNameEdit);
 document.getElementById('optionsGameNameInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitOptionsNameEdit();}if(e.key==='Escape'){e.preventDefault();document.getElementById('optionsGameNameInput').style.display='none';document.getElementById('optionsGameNameDisplay').style.display='';}e.stopPropagation();});
 
-function setOptionsSpeed(val){const n=parseInt(val);if(!Number.isFinite(n))return;const clamped=Math.max(20,Math.min(500,n));document.getElementById('optionsSpeedInput').value=String(clamped);setSpeed(clamped);}
-document.getElementById('optionsSpeedMinus').addEventListener('click',()=>setOptionsSpeed((parseInt(document.getElementById('optionsSpeedInput').value)||speed)+20));
-document.getElementById('optionsSpeedPlus').addEventListener('click',()=>setOptionsSpeed((parseInt(document.getElementById('optionsSpeedInput').value)||speed)-20));
+function setOptionsSpeed(level){const n=parseInt(level);if(!Number.isFinite(n))return;const clamped=Math.max(1,Math.min(25,n));document.getElementById('optionsSpeedInput').value=String(clamped);setSpeed(levelToMs(clamped));}
+document.getElementById('optionsSpeedMinus').addEventListener('click',()=>setOptionsSpeed((parseInt(document.getElementById('optionsSpeedInput').value)||speedToLevel(speed))-1));
+document.getElementById('optionsSpeedPlus').addEventListener('click',()=>setOptionsSpeed((parseInt(document.getElementById('optionsSpeedInput').value)||speedToLevel(speed))+1));
 document.getElementById('optionsSpeedInput').addEventListener('change',e=>setOptionsSpeed(e.target.value));
 
 document.getElementById('optionsDiagonalToggle').addEventListener('change',e=>{diagonalMode=!!e.target.checked;normalizeDirsForDiagonalMode();});
