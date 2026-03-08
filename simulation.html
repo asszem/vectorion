@@ -999,7 +999,7 @@ function wallAxes(e,dir) { let hx=false,hy=false; e.cells.forEach(({dx,dy})=>{co
 function bounceDir(dir,e) { const {hitX,hitY}=wallAxes(e,dir); let ndx=hitX?-dir.dx:dir.dx,ndy=hitY?-dir.dy:dir.dy; const dirs=getDirSet(); const ref=dirs.find(d=>d.dx===ndx&&d.dy===ndy); if(ref&&!entityHitsWall(e,ref))return ref; const avail=dirs.filter(d=>d!==dir&&!entityHitsWall(e,d)); return avail.length>0?avail[Math.floor(Math.random()*avail.length)]:dir; }
 function entitiesOverlap(ei,pi,ej,pj) { const s=new Set(); for(const {dx,dy} of ei.cells)s.add(`${pi.nx+dx},${pi.ny+dy}`); for(const {dx,dy} of ej.cells){if(s.has(`${pj.nx+dx},${pj.ny+dy}`))return true;} return false; }
 function pathPositions(e,finalNextEl){if(e.stopped)return [{nx:e.x,ny:e.y}];const start={nx:e.x,ny:e.y},end=finalNextEl,trail=e.speedTrail||[];return [start,...trail.map(t=>({nx:t.x,ny:t.y})),end];}
-function pathsOverlap(ei,pathI,ej,pathJ){const maxT=Math.max(pathI.length-1,pathJ.length-1);for(let t=0;t<=maxT;t++){const pi=pathI[Math.min(t,pathI.length-1)],pj=pathJ[Math.min(t,pathJ.length-1)];if(entitiesOverlap(ei,pi,ej,pj))return true;}return false;}
+function pathsOverlap(ei,pathI,ej,pathJ){const maxT=Math.max(pathI.length-1,pathJ.length-1);for(let t=0;t<=maxT;t++){const pi=pathI[Math.min(t,pathI.length-1)],pj=pathJ[Math.min(t,pathJ.length-1)];if(entitiesOverlap(ei,pi,ej,pj))return true;if(t<maxT){const pi2=pathI[Math.min(t+1,pathI.length-1)],pj2=pathJ[Math.min(t+1,pathJ.length-1)];if(entitiesOverlap(ei,pi2,ej,pj)&&entitiesOverlap(ej,pj2,ei,pi))return true;}}return false;}
 function randomDir() { const dirs=getDirSet(); return dirs[Math.floor(Math.random()*dirs.length)]; }
 
 function makeEntities(typeCounts) {
