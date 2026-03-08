@@ -1087,9 +1087,11 @@ const editorTitle=document.getElementById('editorTitle');
 const editorNameInput=document.getElementById('editorNameInput');
 
 function buildLegendIn(container) {
+  const prevHoveredEntity=hoveredEntityIndex!==null?entities[hoveredEntityIndex]:null;
   container.innerHTML='';
   hoveredEntityIndex=null;
   entities.forEach((e,idx)=>{
+    if(e===prevHoveredEntity)hoveredEntityIndex=idx;
     const propColors={destroy:'#ff2222',bounce:'#00a828',stop:'#ffdd00',devour:'#ff8800',change:'#cc44ff'};
     const propIcons={destroy:'☠',bounce:'◈',stop:'◼',devour:'◉',change:'⟳'};
     const propLabel=e.movementProperty==='change'?changeLabel(e.changeTarget||'bounce'):e.movementProperty.toUpperCase()+(e.movementProperty==='stop'&&e.stopped?' [HALTED]':'');
