@@ -1251,8 +1251,26 @@ function step() {
   toMutate.forEach(i=>{if(toDestroy.has(i))return;const e=entities[i];const prev=e.changeTarget;e.changeTarget=randomChangeTarget(prev);flashes.push({x:e.x+e.centX,y:e.y+e.centY,age:0,color:'#cc44ff'});didMutate=true;});
   if(didMutate){buildLegend();if(editingEntityIndex!==null){const e=entities[editingEntityIndex];if(e&&e.movementProperty==='change')updatePropDisplay('change',e.changeTarget);}}
   const toRemove=new Set([...toDestroy,...devourVictims]);
-  // Final overlap guard: prevent surviving entities from sharing cells
-  for(let i=0;i<entities.length;i++){if(toRemove.has(i))continue;for(let j=i+1;j<entities.length;j++){if(toRemove.has(j))continue;if(entitiesOverlap(entities[i],finalNext[i],entities[j],finalNext[j])){const iMoved=finalNext[i].nx!==entities[i].x||finalNext[i].ny!==entities[i].y;const jMoved=finalNext[j].nx!==entities[j].x||finalNext[j].ny!==entities[j].y;if(iMoved)finalNext[i]={nx:entities[i].x,ny:entities[i].y};else if(jMoved)finalNext[j]={nx:entities[j].x,ny:entities[j].y};}}}
+  // Path-based overlap prevention: build original paths once, then check all surviving pairs
+  const survivingPaths=entities.map((e,i)=>toRemove.has(i)?null:pathPositions(e,finalNext[i]));
+  for(let i=0;i<entities.length;i++){
+    if(toRemove.has(i))continue;
+    for(let j=i+1;j<entities.length;j++){
+      if(toRemove.has(j))continue;
+      const pathI=survivingPaths[i],pathJ=survivingPaths[j];
+      const maxT=Math.max(pathI.length-1,pathJ.length-1);
+      for(let t=1;t<=maxT;t++){
+        const pi=pathI[Math.min(t,pathI.length-1)],pj=pathJ[Math.min(t,pathJ.length-1)];
+        if(!entitiesOverlap(entities[i],pi,entities[j],pj))continue;
+        const piPrev=pathI[Math.min(t-1,pathI.length-1)],pjPrev=pathJ[Math.min(t-1,pathJ.length-1)];
+        if(!entities[i].stopped)finalNext[i]=piPrev;
+        if(!entities[j].stopped)finalNext[j]=pjPrev;
+        break;
+      }
+    }
+  }
+  // Residual guard: catch any remaining overlaps after reverts (e.g. cascading conflicts)
+  for(let i=0;i<entities.length;i++){if(toRemove.has(i))continue;for(let j=i+1;j<entities.length;j++){if(toRemove.has(j))continue;if(entitiesOverlap(entities[i],finalNext[i],entities[j],finalNext[j])){if(!entities[i].stopped)finalNext[i]={nx:entities[i].x,ny:entities[i].y};else if(!entities[j].stopped)finalNext[j]={nx:entities[j].x,ny:entities[j].y};}}}
   [...toRemove].sort((a,b)=>b-a).forEach(i=>{if(editingEntityIndex===i)closeEntityEditor(false);else if(editingEntityIndex!==null&&editingEntityIndex>i)editingEntityIndex--;entities.splice(i,1);finalNext.splice(i,1);});
   if(toRemove.size>0)buildLegend();
   entities.forEach((e,i)=>{if(!e.stopped){e.trail.push({x:e.x+e.centX,y:e.y+e.centY});if(e.trail.length>TRAIL_LENGTH)e.trail.shift();}e.x=finalNext[i].nx;e.y=finalNext[i].ny;});
