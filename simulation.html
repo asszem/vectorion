@@ -390,6 +390,7 @@
     display: flex; align-items: baseline; gap: 6px;
   }
   .legend-item-prop { font-size: 0.72rem; letter-spacing: 0.1em; opacity: 0.85; padding-left: 2px; }
+  .legend-item-sees { font-size: 0.6rem; letter-spacing: 0.1em; padding-left: 2px; opacity: 0.9; }
 
   /* EDITOR BOX */
   .editor-box {
@@ -1033,7 +1034,7 @@ function makeEntities(typeCounts) {
     const cx=Math.round(50+32*Math.cos(angle)), cy=Math.round(50+32*Math.sin(angle));
     const x=Math.max(0,Math.min(COLS-w,cx-Math.floor(w/2))), y=Math.max(0,Math.min(ROWS-h,cy-Math.floor(h/2)));
     const centX=cells.reduce((s,c)=>s+c.dx,0)/cells.length, centY=cells.reduce((s,c)=>s+c.dy,0)/cells.length;
-    return { x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)) };
+    return { x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)), seenEntity:null };
   });
 }
 
@@ -1098,7 +1099,8 @@ function buildLegendIn(container) {
     item.className='legend-item';
     item.title='Click to edit';
     if(isSelected){item.style.borderColor='rgba(255,255,255,0.85)';item.style.boxShadow='0 0 6px rgba(255,255,255,0.4)';}
-    item.innerHTML=`<div class="legend-item-name"><span style="font-family:'Share Tech Mono',monospace;font-weight:bold;color:${e.def.main};text-shadow:0 0 8px ${e.def.main};font-size:1rem;">@</span><span style="color:${e.def.main};text-shadow:0 0 6px ${e.def.main}40;">${e.def.label}</span><span style="opacity:0.4;font-size:0.65rem;font-family:'Share Tech Mono',monospace;">${e.cells.length}c</span></div><div class="legend-item-prop" style="color:${propColor};">${propIcon} ${propLabel} <span style="opacity:0.5;font-size:0.6rem;color:var(--green-dim);">SPD ${e.speed||1}</span></div>`;
+    const seenHtml=e.seenEntity?`<div class="legend-item-sees" style="color:${e.seenEntity.def.main};text-shadow:0 0 5px ${e.seenEntity.def.main}60;">👁 ${e.seenEntity.def.label}</div>`:'';
+    item.innerHTML=`<div class="legend-item-name"><span style="font-family:'Share Tech Mono',monospace;font-weight:bold;color:${e.def.main};text-shadow:0 0 8px ${e.def.main};font-size:1rem;">@</span><span style="color:${e.def.main};text-shadow:0 0 6px ${e.def.main}40;">${e.def.label}</span><span style="opacity:0.4;font-size:0.65rem;font-family:'Share Tech Mono',monospace;">${e.cells.length}c</span></div><div class="legend-item-prop" style="color:${propColor};">${propIcon} ${propLabel} <span style="opacity:0.5;font-size:0.6rem;color:var(--green-dim);">SPD ${e.speed||1}</span></div>${seenHtml}`;
     item.addEventListener('click',()=>openEntityEditor(idx));
     item.addEventListener('mouseenter',()=>{hoveredEntityIndex=idx;if(!running)draw();});
     item.addEventListener('mouseleave',()=>{hoveredEntityIndex=null;if(!running)draw();});
@@ -1107,7 +1109,26 @@ function buildLegendIn(container) {
 }
 function buildLegend(){buildLegendIn(document.getElementById('entityLegend'));}
 
+function computeVision() {
+  const cellMap=new Map();
+  entities.forEach((e,i)=>e.cells.forEach(c=>cellMap.set(`${e.x+c.dx},${e.y+c.dy}`,i)));
+  entities.forEach((e,i)=>{
+    const {dx,dy}=e.dir;
+    let seen=null,minDist=Infinity;
+    e.cells.forEach(c=>{
+      let rx=e.x+c.dx+dx,ry=e.y+c.dy+dy,dist=1;
+      while(rx>=0&&rx<COLS&&ry>=0&&ry<ROWS){
+        const hitIdx=cellMap.get(`${rx},${ry}`);
+        if(hitIdx!==undefined&&hitIdx!==i){if(dist<minDist){minDist=dist;seen=entities[hitIdx];}break;}
+        rx+=dx;ry+=dy;dist++;
+      }
+    });
+    e.seenEntity=seen;
+  });
+}
+
 function step() {
+  computeVision();
   // Phase 1: move each entity speed tiles, checking walls at each sub-step
   // Result: final positions stored in next[]
   const next = entities.map(e => {
@@ -1201,7 +1222,7 @@ function step() {
   if(toRemove.size>0)buildLegend();
   entities.forEach((e,i)=>{if(!e.stopped){e.trail.push({x:e.x+e.centX,y:e.y+e.centY});if(e.trail.length>TRAIL_LENGTH)e.trail.shift();}e.x=finalNext[i].nx;e.y=finalNext[i].ny;});
   for(let f=flashes.length-1;f>=0;f--){flashes[f].age++;if(flashes[f].age>10)flashes.splice(f,1);}
-  tick++;updateStats();draw();
+  tick++;updateStats();buildLegend();draw();
 }
 
 function updateStats(){document.getElementById('tickCount').textContent=tick;document.getElementById('collisionCount').textContent=totalCollisions;document.getElementById('statusDisplay').textContent=running?'RUNNING':'PAUSED';document.getElementById('speedDisplay').textContent=speedToLevel(speed);}
@@ -1710,6 +1731,7 @@ function importEntities(text) {
       stopped: src.stopped || false,
       collisions: 0,
       speed: (typeof src.speed === 'number' && src.speed >= 1) ? src.speed : 1,
+      seenEntity: null,
     };
   });
 
