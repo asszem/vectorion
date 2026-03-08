@@ -133,7 +133,7 @@
     min-width: 0;
     border-left: 1px solid rgba(0,168,40,0.25);
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     overflow: hidden;
   }
 
@@ -141,14 +141,14 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    min-height: 60px;
+    min-width: 80px;
     flex-shrink: 0;
   }
 
   .resize-handle-v {
-    height: 5px;
+    width: 5px;
     flex-shrink: 0;
-    cursor: row-resize;
+    cursor: col-resize;
     background: transparent;
     position: relative;
     z-index: 10;
@@ -158,9 +158,9 @@
   .resize-handle-v::after {
     content: '';
     position: absolute;
-    left: 10%; top: 50%;
-    transform: translateY(-50%);
-    width: 80%; height: 1px;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 1px; height: 40px;
     background: var(--green-dim);
     opacity: 0.5;
   }
@@ -173,17 +173,15 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    min-height: 60px;
-    border-top: 1px solid rgba(0,168,40,0.15);
+    min-width: 80px;
+    border-left: 1px solid rgba(0,168,40,0.15);
   }
 
   .game-log {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 4px 12px 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
     font-family: 'Share Tech Mono', monospace;
     font-size: 0.58rem;
     color: var(--green-dim);
@@ -1038,11 +1036,11 @@ function calcCellSize(canvasPixelW) {
 
 function applyRightTopHeight(){
   const sidebar=document.getElementById('editorSidebar');
-  const totalH=sidebar.offsetHeight;
-  if(rightTopH===null)rightTopH=Math.floor(totalH/3);
-  const minH=60, maxH=totalH-65;
-  rightTopH=Math.max(minH,Math.min(maxH,rightTopH));
-  document.getElementById('rightTopArea').style.height=rightTopH+'px';
+  const totalW=sidebar.offsetWidth;
+  if(rightTopH===null)rightTopH=Math.floor(totalW/3);
+  const minW=80, maxW=totalW-85;
+  rightTopH=Math.max(minW,Math.min(maxW,rightTopH));
+  document.getElementById('rightTopArea').style.width=rightTopH+'px';
 }
 
 function resizeCanvas() {
@@ -1585,8 +1583,8 @@ window.addEventListener('mouseup',()=>{if(!isDragging)return;isDragging=false;re
 // Resize handle V (vertical — entity list / game log split)
 let isVDragging=false;
 const resizeHandleV=document.getElementById('resizeHandleV');
-resizeHandleV.addEventListener('mousedown',e=>{isVDragging=true;resizeHandleV.classList.add('dragging');document.body.style.cursor='row-resize';document.body.style.userSelect='none';e.preventDefault();});
-window.addEventListener('mousemove',e=>{if(!isVDragging)return;const sidebar=document.getElementById('editorSidebar').getBoundingClientRect();rightTopH=Math.round(e.clientY-sidebar.top);applyRightTopHeight();});
+resizeHandleV.addEventListener('mousedown',e=>{isVDragging=true;resizeHandleV.classList.add('dragging');document.body.style.cursor='col-resize';document.body.style.userSelect='none';e.preventDefault();});
+window.addEventListener('mousemove',e=>{if(!isVDragging)return;const sidebar=document.getElementById('editorSidebar').getBoundingClientRect();rightTopH=Math.round(e.clientX-sidebar.left);applyRightTopHeight();});
 window.addEventListener('mouseup',()=>{if(!isVDragging)return;isVDragging=false;resizeHandleV.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect='';});
 
 // Export / Import
@@ -1722,7 +1720,10 @@ window.addEventListener('keydown',e=>{if(helpBackdrop.classList.contains('visibl
 window.addEventListener('resize',()=>{leftColW=null;rightTopH=null;resizeCanvas();});
 
 function eSpan(e){return `<span style="color:${e.def.main};text-shadow:0 0 5px ${e.def.main}60">${e.def.label}</span>`;}
-function addLog(html){const el=document.getElementById('gameLog');if(!el)return;const d=document.createElement('div');d.className='log-entry';d.innerHTML=html;el.appendChild(d);while(el.children.length>200)el.removeChild(el.firstChild);el.scrollTop=el.scrollHeight;}
+const LOG_FONT_SIZES=['0.90rem','0.80rem','0.72rem','0.65rem','0.61rem'];
+const LOG_BASE_FONT='0.58rem';
+function updateLogFontSizes(){const el=document.getElementById('gameLog');if(!el)return;Array.from(el.children).slice(0,LOG_FONT_SIZES.length+1).forEach((c,i)=>{c.style.fontSize=i<LOG_FONT_SIZES.length?LOG_FONT_SIZES[i]:LOG_BASE_FONT;});}
+function addLog(html){const el=document.getElementById('gameLog');if(!el)return;const d=document.createElement('div');d.className='log-entry';d.innerHTML=html;el.prepend(d);while(el.children.length>200)el.removeChild(el.lastChild);updateLogFontSizes();}
 
 resizeCanvas();buildLegend();updateStats();showMainMenu();draw();
 </script>
