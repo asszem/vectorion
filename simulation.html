@@ -473,6 +473,14 @@
   .vr-option[data-vr="follow"] { color: #00ff41; }
   .vr-option[data-vr="mark"]   { color: #ffdd00; }
 
+  .color-picker-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+  .color-swatch {
+    width: 18px; height: 18px; border: 2px solid transparent;
+    cursor: pointer; flex-shrink: 0; transition: border-color 0.12s, transform 0.1s;
+  }
+  .color-swatch:hover { transform: scale(1.2); }
+  .color-swatch.active { border-color: #ffffff; box-shadow: 0 0 6px rgba(255,255,255,0.6); }
+
   .editor-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-start; }
 
   .editor-speed-row {
@@ -688,6 +696,9 @@
               <button class="vr-option" data-vr="mark">◎ MARK</button>
             </div>
           </div>
+
+          <div style="font-size:0.58rem;color:var(--green-dim);letter-spacing:0.12em;margin-bottom:6px;">COLOR</div>
+          <div class="color-picker-row" id="colorSwatchRow"></div>
 
           <div class="editor-speed-row">
             <span class="editor-speed-label">SPEED</span>
@@ -1084,6 +1095,36 @@ function makeEntityDef(i, total, movementProperty) {
   return { main:col.main, glow:col.glow, trailR:col.trailR, trailG:col.trailG, trailB:col.trailB, label:labels[i]||`E${i+1}` };
 }
 
+const ENTITY_COLORS = [
+  null,        // default (role color)
+  '#00ff41',   // green
+  '#ff6666',   // red
+  '#4488ff',   // blue
+  '#ffdd00',   // yellow
+  '#ff8800',   // orange
+  '#cc44ff',   // purple
+  '#00eeff',   // cyan
+  '#ff44bb',   // pink
+  '#ffffff',   // white
+  '#aaffaa',   // light green
+  '#ffaaaa',   // light red
+  '#aabbff',   // light blue
+];
+
+function applyEntityColor(e, hex) {
+  e.customColor = hex;
+  if (hex === null) {
+    const col = ROLE_COLORS[e.movementProperty] || ROLE_COLORS['change'];
+    e.def.main = col.main; e.def.glow = col.glow;
+    e.def.trailR = col.trailR; e.def.trailG = col.trailG; e.def.trailB = col.trailB;
+  } else {
+    const { r, g, b } = hexToRgb(hex);
+    e.def.main = hex;
+    e.def.glow = `rgba(${r},${g},${b},0.35)`;
+    e.def.trailR = r; e.def.trailG = g; e.def.trailB = b;
+  }
+}
+
 const flashes = [];
 
 function randomPolyomino(maxW, maxH) {
@@ -1129,7 +1170,7 @@ function makeEntities(typeCounts) {
     const cx=Math.round(50+32*Math.cos(angle)), cy=Math.round(50+32*Math.sin(angle));
     const x=Math.max(0,Math.min(COLS-w,cx-Math.floor(w/2))), y=Math.max(0,Math.min(ROWS-h,cy-Math.floor(h/2)));
     const centX=cells.reduce((s,c)=>s+c.dx,0)/cells.length, centY=cells.reduce((s,c)=>s+c.dy,0)/cells.length;
-    return { x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)), seenEntity:null, visualReaction:'ignore', followTarget:null };
+    return { x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)), seenEntity:null, visualReaction:'ignore', followTarget:null, customColor:null };
   });
 }
 
@@ -1506,7 +1547,7 @@ function autosaveGame() {
     const pad=n=>String(n).padStart(2,'0');
     const now=new Date();
     const savedAt=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,log:logEntries,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1,visualReaction:e.visualReaction||'ignore'}))};
+    const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,log:logEntries,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1,visualReaction:e.visualReaction||'ignore',customColor:e.customColor||null}))};
     localStorage.setItem('vectorion_autosave',JSON.stringify(data));
     const toast=document.getElementById('autosaveToast');
     if(toast){toast.style.opacity='1';clearTimeout(toast._hideTimer);toast._hideTimer=setTimeout(()=>{toast.style.opacity='0';},5000);}
@@ -1834,6 +1875,34 @@ function updateEditorSpeed(){
   document.getElementById('editorSpeedPlus').style.opacity=e.speed>=maxSpeed?'0.3':'1';
 }
 
+function buildColorSwatches(activeHex){
+  const row=document.getElementById('colorSwatchRow');if(!row)return;
+  row.innerHTML='';
+  ENTITY_COLORS.forEach(hex=>{
+    const sw=document.createElement('div');
+    sw.className='color-swatch'+(hex===activeHex?' active':'');
+    if(hex===null){
+      sw.style.background='transparent';sw.style.border='2px solid var(--green-dim)';
+      sw.title='Default (role color)';
+      sw.innerHTML='<svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="2" x2="12" y2="12" stroke="#00a828" stroke-width="2"/></svg>';
+      if(hex===activeHex){sw.style.borderColor='#ffffff';sw.style.boxShadow='0 0 6px rgba(255,255,255,0.6)';}
+    } else {
+      sw.style.background=hex;
+      sw.title=hex;
+    }
+    sw.addEventListener('click',()=>{
+      row.querySelectorAll('.color-swatch').forEach(s=>{s.classList.remove('active');if(s.style.background==='transparent'){s.style.borderColor='var(--green-dim)';s.style.boxShadow='';}});
+      sw.classList.add('active');
+      if(hex===null){sw.style.borderColor='#ffffff';sw.style.boxShadow='0 0 6px rgba(255,255,255,0.6)';}
+      selectedColor=hex;
+      if(editingEntityIndex!==null){applyEntityColor(entities[editingEntityIndex],hex);editorTitle.style.color=entities[editingEntityIndex].def.main;editorTitle.style.textShadow=`0 0 10px ${entities[editingEntityIndex].def.main}`;buildLegend();draw();}
+    });
+    row.appendChild(sw);
+  });
+}
+
+let selectedColor=null;
+
 function openEntityEditor(entityIndex){
   const alreadyOpen=entityEditor.classList.contains('visible');
   editingEntityIndex=entityIndex;const e=entities[entityIndex];selectedProp=e.movementProperty;
@@ -1842,6 +1911,7 @@ function openEntityEditor(entityIndex){
   const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='';
   updatePropDisplay(selectedProp,e.changeTarget);
   selectedVR=e.visualReaction||'ignore';updateVRDisplay(selectedVR);
+  selectedColor=e.customColor||null;buildColorSwatches(selectedColor);
   updateEditorSpeed();
   entityEditor.classList.add('visible');buildLegend();draw();
 }
@@ -1866,7 +1936,7 @@ document.getElementById('editorSpeedPlus').addEventListener('click',()=>{
 function closeEntityEditor(revert){
   if(!revert&&editingEntityIndex!==null&&selectedProp){
     const e=entities[editingEntityIndex];
-    if(e&&e.movementProperty!==selectedProp){const saved=e.def.label;e.movementProperty=selectedProp;e.def=makeEntityDef(editingEntityIndex,entities.length,selectedProp);e.def.label=saved;if(selectedProp!=='stop')e.stopped=false;if(selectedProp==='change'&&!e.changeTarget)e.changeTarget=randomChangeTarget(null);e.trail=[];}
+    if(e&&e.movementProperty!==selectedProp){const saved=e.def.label;e.movementProperty=selectedProp;e.def=makeEntityDef(editingEntityIndex,entities.length,selectedProp);e.def.label=saved;if(selectedProp!=='stop')e.stopped=false;if(selectedProp==='change'&&!e.changeTarget)e.changeTarget=randomChangeTarget(null);e.trail=[];if(e.customColor)applyEntityColor(e,e.customColor);}
     if(e){e.visualReaction=selectedVR;if(selectedVR==='ignore')e.followTarget=null;}
   }
   propDropdown.style.display='none';vrDropdown.style.display='none';
@@ -1977,7 +2047,7 @@ function exportEntities(){
   if(running){running=false;clearInterval(intervalId);intervalId=null;document.getElementById('statusDisplay').textContent='PAUSED';}
   const pad=n=>String(n).padStart(2,'0');const now=new Date();
   const savedAt=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,log:logEntries,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1,visualReaction:e.visualReaction||'ignore'}))};
+  const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,log:logEntries,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1,visualReaction:e.visualReaction||'ignore',customColor:e.customColor||null}))};
   const json=JSON.stringify(data,null,2);const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);
   const safeName=(currentGameName||'vectorion').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
   const a=document.createElement('a');a.href=url;a.download=`${safeName}_tick${tick}.json`;a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},100);
@@ -2053,10 +2123,12 @@ function importEntities(text) {
       seenEntity: null,
       visualReaction: src.visualReaction || 'ignore',
       followTarget: null,
+      customColor: src.customColor || null,
     };
   });
 
   entities = imported;
+  entities.forEach(e=>{if(e.customColor)applyEntityColor(e,e.customColor);});
   tick = data.tick || 0;
   totalCollisions = 0;
   diagonalMode = data.diagonalMode !== undefined ? data.diagonalMode : true;
