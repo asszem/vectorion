@@ -391,6 +391,7 @@
   }
   .legend-item-prop { font-size: 0.72rem; letter-spacing: 0.1em; opacity: 0.85; padding-left: 2px; }
   .legend-item-sees { font-size: 0.6rem; letter-spacing: 0.1em; padding-left: 2px; opacity: 0.9; }
+  .legend-item-sees .seen-name { font-size: 0.82rem; font-weight: bold; letter-spacing: 0.05em; }
 
   /* EDITOR BOX */
   .editor-box {
@@ -1102,7 +1103,7 @@ function buildLegendIn(container) {
     item.className='legend-item';
     item.title='Click to edit';
     if(isSelected){item.style.borderColor='rgba(255,255,255,0.85)';item.style.boxShadow='0 0 6px rgba(255,255,255,0.4)';}
-    const seenHtml=e.seenEntity?`<div class="legend-item-sees" style="color:${e.seenEntity.def.main};text-shadow:0 0 5px ${e.seenEntity.def.main}60;">👁 ${e.seenEntity.def.label}</div>`:'';
+    const seenHtml=e.seenEntity?`<div class="legend-item-sees" style="color:${e.seenEntity.def.main};text-shadow:0 0 5px ${e.seenEntity.def.main}60;">👁 <span class="seen-name">${e.seenEntity.def.label}</span></div>`:`<div class="legend-item-sees" style="opacity:0.35;">👁 <span class="seen-name">None</span></div>`;
     item.innerHTML=`<div class="legend-item-name"><span style="font-family:'Share Tech Mono',monospace;font-weight:bold;color:${e.def.main};text-shadow:0 0 8px ${e.def.main};font-size:1rem;">@</span><span style="color:${e.def.main};text-shadow:0 0 6px ${e.def.main}40;">${e.def.label}</span><span style="opacity:0.4;font-size:0.65rem;font-family:'Share Tech Mono',monospace;">${e.cells.length}c</span></div><div class="legend-item-prop" style="color:${propColor};">${propIcon} ${propLabel} <span style="opacity:0.5;font-size:0.6rem;color:var(--green-dim);">SPD ${e.speed||1}</span></div>${seenHtml}`;
     item.addEventListener('click',()=>openEntityEditor(idx));
     item.addEventListener('mouseenter',()=>{hoveredEntityIndex=idx;if(!running)draw();});
@@ -1131,7 +1132,6 @@ function computeVision() {
 }
 
 function step() {
-  computeVision();
   // Phase 1: move each entity speed tiles, checking walls at each sub-step
   // Result: final positions stored in next[]
   const next = entities.map(e => {
@@ -1225,7 +1225,7 @@ function step() {
   if(toRemove.size>0)buildLegend();
   entities.forEach((e,i)=>{if(!e.stopped){e.trail.push({x:e.x+e.centX,y:e.y+e.centY});if(e.trail.length>TRAIL_LENGTH)e.trail.shift();}e.x=finalNext[i].nx;e.y=finalNext[i].ny;});
   for(let f=flashes.length-1;f>=0;f--){flashes[f].age++;if(flashes[f].age>10)flashes.splice(f,1);}
-  tick++;updateStats();buildLegend();draw();
+  tick++;updateStats();computeVision();buildLegend();draw();
 }
 
 function updateStats(){document.getElementById('tickCount').textContent=tick;document.getElementById('collisionCount').textContent=totalCollisions;document.getElementById('statusDisplay').textContent=running?'RUNNING':'PAUSED';document.getElementById('speedDisplay').textContent=speedToLevel(speed);}
@@ -1273,6 +1273,7 @@ function drawEntityLOS(e,bb,ex0,ey0,ex1,ey1,midX,midY){
 }
 
 function draw() {
+  computeVision();
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle='#030f03';ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle='rgba(0,80,20,0.3)';
@@ -1340,6 +1341,14 @@ function draw() {
       if(!(dx===0&&dy<0))glowLine(()=>{ctx.beginPath();ctx.moveTo(midX,ey0);ctx.lineTo(midX,0);});
       if(!(dx===0&&dy>0))glowLine(()=>{ctx.beginPath();ctx.moveTo(midX,ey1);ctx.lineTo(midX,canvas.height);});
       drawEntityLOS(e,bb,ex0,ey0,ex1,ey1,midX,midY);
+      if(e.seenEntity){
+        const s=e.seenEntity;const sbb=boundingBox(s.cells);
+        const smX=Math.round((s.x+sbb.minX+s.x+sbb.maxX+1)/2)*CELL+.5,smY=Math.round((s.y+sbb.minY+s.y+sbb.maxY+1)/2)*CELL+.5;
+        ctx.strokeStyle='rgba(0,255,80,0.25)';ctx.shadowColor='#00ff50';ctx.shadowBlur=14;ctx.lineWidth=3;ctx.setLineDash([]);
+        ctx.beginPath();ctx.moveTo(midX,midY);ctx.lineTo(smX,smY);ctx.stroke();
+        ctx.strokeStyle='#00ff50';ctx.shadowBlur=4;ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.moveTo(midX,midY);ctx.lineTo(smX,smY);ctx.stroke();
+      }
       ctx.restore();
     } else if(hoveredEntityIndex!==null&&entities[hoveredEntityIndex]===e){
       const bb=boundingBox(e.cells);
