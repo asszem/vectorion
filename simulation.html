@@ -1425,34 +1425,46 @@ function drawEntityLOS(e,bb,ex0,ey0,ex1,ey1,midX,midY){
   let rx=stX+dx,ry=stY+dy,eGX=stX,eGY=stY;
   while(rx>=0&&rx<COLS&&ry>=0&&ry<ROWS){if(seenSet&&seenSet.has(`${rx},${ry}`)){eGX=rx;eGY=ry;break;}eGX=rx;eGY=ry;rx+=dx;ry+=dy;}
   const ang=Math.atan2(dy,dx),aAng=Math.PI/5;
-  ctx.save();
+  const aLen=Math.max(CELL*1.2,Math.min(ex1-ex0,ey1-ey0)*0.8);
+  const BORDER_STYLES=[[`rgba(255,210,0,0.3)`,10,3],[`rgba(255,224,0,0.85)`,3,1]];
+  ctx.save();ctx.setLineDash([]);
+
   if(dy===0&&dx!==0){
-    // Cardinal horizontal — band spans full entity height
-    const lx0=dx>0?ex1:eGX*CELL,lx1=dx>0?(eGX+1)*CELL:ex0;
-    const endX=dx>0?(eGX+1)*CELL:eGX*CELL;
-    const aLen=Math.max(CELL*0.8,(ey1-ey0)*0.6);
-    ctx.fillStyle='rgba(255,220,0,0.07)';ctx.fillRect(lx0,ey0,lx1-lx0,ey1-ey0);
-    [[`rgba(255,210,0,0.3)`,10,3],[`rgba(255,224,0,0.85)`,3,1]].forEach(([c,b,w])=>{ctx.strokeStyle=c;ctx.shadowColor='#ffdd00';ctx.shadowBlur=b;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(lx0,ey0);ctx.lineTo(lx1,ey0);ctx.moveTo(lx0,ey1);ctx.lineTo(lx1,ey1);ctx.stroke();});
+    // Horizontal
+    const beamStart=dx>0?ex1:ex0;
+    const beamEnd=dx>0?(eGX+1)*CELL:eGX*CELL;
+    const borderEnd=beamEnd-dx*aLen;
+    const fillX=Math.min(beamStart,borderEnd),fillW=Math.abs(borderEnd-beamStart);
+    if(fillW>0){ctx.fillStyle='rgba(255,220,0,0.07)';ctx.fillRect(fillX,ey0,fillW,ey1-ey0);}
+    BORDER_STYLES.forEach(([c,b,w])=>{ctx.strokeStyle=c;ctx.shadowColor='#ffdd00';ctx.shadowBlur=b;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(beamStart,ey0);ctx.lineTo(borderEnd,ey0);ctx.moveTo(beamStart,ey1);ctx.lineTo(borderEnd,ey1);ctx.stroke();});
     ctx.strokeStyle='rgba(255,224,0,0.95)';ctx.shadowColor='#ffdd00';ctx.shadowBlur=10;ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(endX,midY);ctx.lineTo(endX-aLen*Math.cos(ang-aAng),midY-aLen*Math.sin(ang-aAng));ctx.moveTo(endX,midY);ctx.lineTo(endX-aLen*Math.cos(ang+aAng),midY-aLen*Math.sin(ang+aAng));ctx.stroke();
+    ctx.beginPath();ctx.moveTo(beamEnd,midY);ctx.lineTo(beamEnd-aLen*Math.cos(ang-aAng),midY-aLen*Math.sin(ang-aAng));ctx.moveTo(beamEnd,midY);ctx.lineTo(beamEnd-aLen*Math.cos(ang+aAng),midY-aLen*Math.sin(ang+aAng));ctx.stroke();
+
   } else if(dx===0&&dy!==0){
-    // Cardinal vertical — band spans full entity width
-    const ly0=dy>0?ey1:eGY*CELL,ly1=dy>0?(eGY+1)*CELL:ey0;
-    const endY=dy>0?(eGY+1)*CELL:eGY*CELL;
-    const aLen=Math.max(CELL*0.8,(ex1-ex0)*0.6);
-    ctx.fillStyle='rgba(255,220,0,0.07)';ctx.fillRect(ex0,ly0,ex1-ex0,ly1-ly0);
-    [[`rgba(255,210,0,0.3)`,10,3],[`rgba(255,224,0,0.85)`,3,1]].forEach(([c,b,w])=>{ctx.strokeStyle=c;ctx.shadowColor='#ffdd00';ctx.shadowBlur=b;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(ex0,ly0);ctx.lineTo(ex0,ly1);ctx.moveTo(ex1,ly0);ctx.lineTo(ex1,ly1);ctx.stroke();});
+    // Vertical
+    const beamStart=dy>0?ey1:ey0;
+    const beamEnd=dy>0?(eGY+1)*CELL:eGY*CELL;
+    const borderEnd=beamEnd-dy*aLen;
+    const fillY=Math.min(beamStart,borderEnd),fillH=Math.abs(borderEnd-beamStart);
+    if(fillH>0){ctx.fillStyle='rgba(255,220,0,0.07)';ctx.fillRect(ex0,fillY,ex1-ex0,fillH);}
+    BORDER_STYLES.forEach(([c,b,w])=>{ctx.strokeStyle=c;ctx.shadowColor='#ffdd00';ctx.shadowBlur=b;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(ex0,beamStart);ctx.lineTo(ex0,borderEnd);ctx.moveTo(ex1,beamStart);ctx.lineTo(ex1,borderEnd);ctx.stroke();});
     ctx.strokeStyle='rgba(255,224,0,0.95)';ctx.shadowColor='#ffdd00';ctx.shadowBlur=10;ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(midX,endY);ctx.lineTo(midX-aLen*Math.cos(ang-aAng),endY-aLen*Math.sin(ang-aAng));ctx.moveTo(midX,endY);ctx.lineTo(midX-aLen*Math.cos(ang+aAng),endY-aLen*Math.sin(ang+aAng));ctx.stroke();
+    ctx.beginPath();ctx.moveTo(midX,beamEnd);ctx.lineTo(midX-aLen*Math.cos(ang-aAng),beamEnd-aLen*Math.sin(ang-aAng));ctx.moveTo(midX,beamEnd);ctx.lineTo(midX-aLen*Math.cos(ang+aAng),beamEnd-aLen*Math.sin(ang+aAng));ctx.stroke();
+
   } else {
-    // Diagonal — thick stroke proportional to entity's shorter perpendicular side
-    const perpPx=Math.min(ex1-ex0,ey1-ey0);
+    // Diagonal — two parallel border lines offset perpendicular to direction
+    const mag=Math.sqrt(dx*dx+dy*dy);
+    const pUX=-dy/mag,pUY=dx/mag; // perpendicular unit vector
+    const halfW=Math.min(ex1-ex0,ey1-ey0)*0.5;
+    const sSX=dx>0?ex1:ex0,sSY=dy>0?ey1:ey0;
     const ePX=(eGX+0.5)*CELL,ePY=(eGY+0.5)*CELL;
-    const sSX=dx>0?ex1:(dx<0?ex0:midX),sSY=dy>0?ey1:(dy<0?ey0:midY);
-    const aLen=Math.max(CELL*0.8,perpPx*0.6);
-    ctx.lineCap='butt';
-    ctx.strokeStyle='rgba(255,210,0,0.12)';ctx.shadowColor='#ffdd00';ctx.shadowBlur=16;ctx.lineWidth=perpPx+8;ctx.beginPath();ctx.moveTo(sSX,sSY);ctx.lineTo(ePX,ePY);ctx.stroke();
-    ctx.strokeStyle='rgba(255,224,0,0.55)';ctx.shadowBlur=4;ctx.lineWidth=perpPx;ctx.beginPath();ctx.moveTo(sSX,sSY);ctx.lineTo(ePX,ePY);ctx.stroke();
+    const eBX=ePX-aLen*Math.cos(ang),eBY=ePY-aLen*Math.sin(ang);
+    // Fill
+    ctx.fillStyle='rgba(255,220,0,0.07)';
+    ctx.beginPath();ctx.moveTo(sSX+halfW*pUX,sSY+halfW*pUY);ctx.lineTo(eBX+halfW*pUX,eBY+halfW*pUY);ctx.lineTo(eBX-halfW*pUX,eBY-halfW*pUY);ctx.lineTo(sSX-halfW*pUX,sSY-halfW*pUY);ctx.closePath();ctx.fill();
+    // Border lines
+    BORDER_STYLES.forEach(([c,b,w])=>{ctx.strokeStyle=c;ctx.shadowColor='#ffdd00';ctx.shadowBlur=b;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(sSX+halfW*pUX,sSY+halfW*pUY);ctx.lineTo(eBX+halfW*pUX,eBY+halfW*pUY);ctx.moveTo(sSX-halfW*pUX,sSY-halfW*pUY);ctx.lineTo(eBX-halfW*pUX,eBY-halfW*pUY);ctx.stroke();});
+    // Arrow
     ctx.strokeStyle='rgba(255,224,0,0.95)';ctx.shadowColor='#ffdd00';ctx.shadowBlur=10;ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(ePX,ePY);ctx.lineTo(ePX-aLen*Math.cos(ang-aAng),ePY-aLen*Math.sin(ang-aAng));ctx.moveTo(ePX,ePY);ctx.lineTo(ePX-aLen*Math.cos(ang+aAng),ePY-aLen*Math.sin(ang+aAng));ctx.stroke();
   }
