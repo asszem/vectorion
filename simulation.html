@@ -1175,6 +1175,8 @@ function step() {
   toMutate.forEach(i=>{if(toDestroy.has(i))return;const e=entities[i];const prev=e.changeTarget;e.changeTarget=randomChangeTarget(prev);flashes.push({x:e.x+e.centX,y:e.y+e.centY,age:0,color:'#cc44ff'});didMutate=true;});
   if(didMutate){buildLegend();if(editingEntityIndex!==null){const e=entities[editingEntityIndex];if(e&&e.movementProperty==='change'){const cb=document.querySelector('.editor-prop-btn[data-prop="change"]');if(cb)cb.textContent=`⟳ CHANGE-[${e.changeTarget.toUpperCase()}] — acts then mutates`;}}}
   const toRemove=new Set([...toDestroy,...devourVictims]);
+  // Final overlap guard: prevent surviving entities from sharing cells
+  for(let i=0;i<entities.length;i++){if(toRemove.has(i))continue;for(let j=i+1;j<entities.length;j++){if(toRemove.has(j))continue;if(entitiesOverlap(entities[i],finalNext[i],entities[j],finalNext[j])){const iMoved=finalNext[i].nx!==entities[i].x||finalNext[i].ny!==entities[i].y;const jMoved=finalNext[j].nx!==entities[j].x||finalNext[j].ny!==entities[j].y;if(iMoved)finalNext[i]={nx:entities[i].x,ny:entities[i].y};else if(jMoved)finalNext[j]={nx:entities[j].x,ny:entities[j].y};}}}
   [...toRemove].sort((a,b)=>b-a).forEach(i=>{if(editingEntityIndex===i)closeEntityEditor(false);else if(editingEntityIndex!==null&&editingEntityIndex>i)editingEntityIndex--;entities.splice(i,1);finalNext.splice(i,1);});
   if(toRemove.size>0)buildLegend();
   entities.forEach((e,i)=>{if(!e.stopped){e.trail.push({x:e.x+e.centX,y:e.y+e.centY});if(e.trail.length>TRAIL_LENGTH)e.trail.shift();}e.x=finalNext[i].nx;e.y=finalNext[i].ny;});
