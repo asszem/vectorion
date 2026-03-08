@@ -471,7 +471,7 @@
   .entity-count-btn:hover { color: var(--green); }
 
   #entityCountInput, #maxWInput, #maxHInput,
-  #destroyCountInput, #bounceCountInput, #stopCountInput, #devourCountInput, #changeCountInput, #maxSpeedInput, #initSpeedInput {
+  #destroyCountInput, #bounceCountInput, #stopCountInput, #devourCountInput, #changeCountInput, #maxSpeedInput, #initSpeedInput, #optionsSpeedInput {
     background: none; border: none;
     border-left: 1px solid var(--green-dim); border-right: 1px solid var(--green-dim);
     color: var(--green); font-family: 'VT323', monospace; font-size: 1.4rem;
@@ -486,11 +486,12 @@
   #devourCountInput::-webkit-inner-spin-button, #devourCountInput::-webkit-outer-spin-button,
   #changeCountInput::-webkit-inner-spin-button, #changeCountInput::-webkit-outer-spin-button,
   #maxSpeedInput::-webkit-inner-spin-button, #maxSpeedInput::-webkit-outer-spin-button,
-  #initSpeedInput::-webkit-inner-spin-button, #initSpeedInput::-webkit-outer-spin-button { -webkit-appearance: none; }
+  #initSpeedInput::-webkit-inner-spin-button, #initSpeedInput::-webkit-outer-spin-button,
+  #optionsSpeedInput::-webkit-inner-spin-button, #optionsSpeedInput::-webkit-outer-spin-button { -webkit-appearance: none; }
   #entityCountInput[type=number], #maxWInput[type=number], #maxHInput[type=number],
   #destroyCountInput[type=number], #bounceCountInput[type=number], #stopCountInput[type=number],
   #devourCountInput[type=number], #changeCountInput[type=number], #maxSpeedInput[type=number],
-  #initSpeedInput[type=number] { -moz-appearance: textfield; }
+  #initSpeedInput[type=number], #optionsSpeedInput[type=number] { -moz-appearance: textfield; }
 
   .toggle-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0 6px; }
   .toggle-label { font-size: 0.7rem; color: var(--green-dim); letter-spacing: 0.15em; }
@@ -631,7 +632,7 @@
         </div>
         <div class="entity-input-wrap">
           <button class="entity-count-btn" id="btnDestroyMinus">−</button>
-          <input type="number" id="destroyCountInput" value="1" min="0" max="10">
+          <input type="number" id="destroyCountInput" value="0" min="0" max="10">
           <button class="entity-count-btn" id="btnDestroyPlus">+</button>
         </div>
       </div>
@@ -653,7 +654,7 @@
         </div>
         <div class="entity-input-wrap">
           <button class="entity-count-btn" id="btnStopMinus">−</button>
-          <input type="number" id="stopCountInput" value="2" min="0" max="10">
+          <input type="number" id="stopCountInput" value="3" min="0" max="10">
           <button class="entity-count-btn" id="btnStopPlus">+</button>
         </div>
       </div>
@@ -664,7 +665,7 @@
         </div>
         <div class="entity-input-wrap">
           <button class="entity-count-btn" id="btnDevourMinus">−</button>
-          <input type="number" id="devourCountInput" value="2" min="0" max="10">
+          <input type="number" id="devourCountInput" value="3" min="0" max="10">
           <button class="entity-count-btn" id="btnDevourPlus">+</button>
         </div>
       </div>
@@ -675,7 +676,7 @@
         </div>
         <div class="entity-input-wrap">
           <button class="entity-count-btn" id="btnChangeMinus">−</button>
-          <input type="number" id="changeCountInput" value="2" min="0" max="10">
+          <input type="number" id="changeCountInput" value="0" min="0" max="10">
           <button class="entity-count-btn" id="btnChangePlus">+</button>
         </div>
       </div>
@@ -1260,7 +1261,20 @@ document.getElementById('gameNameEditBtn').addEventListener('click',startGameNam
 document.getElementById('gameNameInput').addEventListener('blur',commitGameNameEdit);
 document.getElementById('gameNameInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitGameNameEdit();}if(e.key==='Escape'){e.preventDefault();document.getElementById('gameNameInput').style.display='none';document.getElementById('gameNameDisplay').style.display='';}e.stopPropagation();});
 
-function showConfigScreen(){document.getElementById('mainMenu').style.display='none';document.getElementById('gameOptionsScreen').style.display='none';document.getElementById('configScreen').style.display='';setGameNameDisplay(randomGameName());}
+function showConfigScreen(){
+  document.getElementById('mainMenu').style.display='none';
+  document.getElementById('gameOptionsScreen').style.display='none';
+  document.getElementById('configScreen').style.display='';
+  setGameNameDisplay(randomGameName());
+  document.getElementById('destroyCountInput').value='0';
+  document.getElementById('bounceCountInput').value='10';
+  document.getElementById('stopCountInput').value='3';
+  document.getElementById('devourCountInput').value='3';
+  document.getElementById('changeCountInput').value='0';
+  document.getElementById('initSpeedInput').value='20';
+  document.getElementById('diagonalToggle').checked=true;
+  document.getElementById('speedTrailToggle').checked=true;
+}
 
 function restart(){clearInterval(intervalId);intervalId=null;running=false;tick=0;totalCollisions=0;flashes.length=0;closeEntityEditor(false);updateStats();draw();showMainMenu();}
 
@@ -1305,7 +1319,14 @@ function resumeFromOptions(){
 
 function openOptions(){clearInterval(intervalId);intervalId=null;running=false;closeEntityEditor(false);updateStats();draw();showGameOptions();}
 
-function handleOpenOptions(e){if(entityEditor.classList.contains('visible'))return;if(!overlay.classList.contains('hidden'))return;e.preventDefault();openOptions();document.getElementById('ctrlEsc').classList.add('esc-active');}
+function handleOpenOptions(e){
+  if(entityEditor.classList.contains('visible'))return;
+  if(!overlay.classList.contains('hidden')){
+    if(hasActiveGame&&document.getElementById('gameOptionsScreen').style.display==='none'){e.preventDefault();showGameOptions();}
+    return;
+  }
+  e.preventDefault();openOptions();document.getElementById('ctrlEsc').classList.add('esc-active');
+}
 gameArea.addEventListener('keydown',e=>{if(e.code==='Escape'||e.key==='Escape')handleOpenOptions(e);});
 document.addEventListener('keydown',e=>{if(e.code==='Escape'||e.key==='Escape'){const numberInputs=['destroyCountInput','bounceCountInput','stopCountInput','maxWInput','maxHInput','devourCountInput','changeCountInput'];if(document.activeElement&&numberInputs.includes(document.activeElement.id))return;handleOpenOptions(e);}},true);
 document.getElementById('headerGameName').addEventListener('click',e=>{if(overlay.classList.contains('hidden')&&!entityEditor.classList.contains('visible')){handleOpenOptions(e);}});
@@ -1335,11 +1356,11 @@ document.getElementById('configBack').addEventListener('click',showMainMenu);
 document.getElementById('configStart').addEventListener('click',()=>{hasActiveGame=true;startNewGame();});
 
 function wireSpinner(bm,inp,bp,min,max,def,step=1){const i=document.getElementById(inp);document.getElementById(bm).addEventListener('click',()=>{i.value=Math.max(min,(parseInt(i.value)||def)-step);});document.getElementById(bp).addEventListener('click',()=>{i.value=Math.min(max,(parseInt(i.value)||def)+step);});i.addEventListener('change',()=>{i.value=Math.max(min,Math.min(max,parseInt(i.value)||def));});}
-wireSpinner('btnDestroyMinus','destroyCountInput','btnDestroyPlus',0,10,1);
+wireSpinner('btnDestroyMinus','destroyCountInput','btnDestroyPlus',0,10,0);
 wireSpinner('btnBounceMinus','bounceCountInput','btnBouncePlus',0,20,10);
-wireSpinner('btnStopMinus','stopCountInput','btnStopPlus',0,10,2);
-wireSpinner('btnDevourMinus','devourCountInput','btnDevourPlus',0,10,2);
-wireSpinner('btnChangeMinus','changeCountInput','btnChangePlus',0,10,2);
+wireSpinner('btnStopMinus','stopCountInput','btnStopPlus',0,10,3);
+wireSpinner('btnDevourMinus','devourCountInput','btnDevourPlus',0,10,3);
+wireSpinner('btnChangeMinus','changeCountInput','btnChangePlus',0,10,0);
 wireSpinner('btnWMinus','maxWInput','btnWPlus',1,8,4);
 wireSpinner('btnHMinus','maxHInput','btnHPlus',1,8,4);
 wireSpinner('btnMaxSpeedMinus','maxSpeedInput','btnMaxSpeedPlus',1,10,3);

@@ -1,10 +1,12 @@
 # Work in Progress
 
-* fix: game options menu to show existing entities with the ability to change their numbers
-* fix: new game menu should have the same default values, regardles of any changes
+* test: export and import
 * feat: rename properties to Reactions. Destroy, Bounce, Stop, Devour, Change
 * feat: game log - display interaction events - "Entity 1 Destroyed Entity 2 at Tick 231"
 * feat: game log - add game log to savegame (localStorage and json file save)
+
+## Minor or undecided changes
+* fix: game options menu to show existing entities with the ability to change their numbers
 
 # Future plans
 
