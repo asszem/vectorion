@@ -1,15 +1,18 @@
 # Work in Progress
 
-* feat: rename properties to Reactions. Destroy, Bounce, Stop, Devour, Change
+* fix: display crosshair and line of sight when the simulation runs and user hovers over entity list
+* fix: entity not seeing other entity, even if it is partially in its line of sight
+* fix: seen other entity display font barely visible, make it bigger
+- Start a new game when backspace key is pressed with default settings
+
 
 ## Minor or undecided changes
+
 * fix: game options menu to show existing entities with the ability to change their numbers
 
 # Future plans
 
 ## Vision
-
-* add Vision to entities
 
 ## Behaviours
 
