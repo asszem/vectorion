@@ -969,11 +969,13 @@ function resizeCanvas() {
 // --- Entity editor state ---
 const entityEditor=document.getElementById('entityEditor');
 let editingEntityIndex=null, selectedProp=null, originalProp=null, wasRunningBeforeEdit=false;
+let hoveredEntityIndex=null;
 const editorTitle=document.getElementById('editorTitle');
 const editorNameInput=document.getElementById('editorNameInput');
 
 function buildLegendIn(container) {
   container.innerHTML='';
+  hoveredEntityIndex=null;
   entities.forEach((e,idx)=>{
     const propColors={destroy:'#ff2222',bounce:'#00a828',stop:'#ffdd00',devour:'#ff8800',change:'#cc44ff'};
     const propIcons={destroy:'☠',bounce:'◈',stop:'◼',devour:'◉',change:'⟳'};
@@ -987,6 +989,8 @@ function buildLegendIn(container) {
     if(isSelected){item.style.borderColor='rgba(255,255,255,0.85)';item.style.boxShadow='0 0 6px rgba(255,255,255,0.4)';}
     item.innerHTML=`<div class="legend-item-name"><span style="font-family:'Share Tech Mono',monospace;font-weight:bold;color:${e.def.main};text-shadow:0 0 8px ${e.def.main};font-size:1rem;">@</span><span style="color:${e.def.main};text-shadow:0 0 6px ${e.def.main}40;">${e.def.label}</span><span style="opacity:0.4;font-size:0.65rem;font-family:'Share Tech Mono',monospace;">${e.cells.length}c</span></div><div class="legend-item-prop" style="color:${propColor};">${propIcon} ${propLabel} <span style="opacity:0.5;font-size:0.6rem;color:var(--green-dim);">SPD ${e.speed||1}</span></div>`;
     item.addEventListener('click',()=>openEntityEditor(idx));
+    item.addEventListener('mouseenter',()=>{hoveredEntityIndex=idx;});
+    item.addEventListener('mouseleave',()=>{hoveredEntityIndex=null;});
     container.appendChild(item);
   });
 }
@@ -1155,6 +1159,18 @@ function draw() {
       glowLine(()=>{ctx.beginPath();ctx.moveTo(midX,ey1);ctx.lineTo(midX,canvas.height);});
       glowLine(()=>{ctx.beginPath();ctx.moveTo(ex0,midY);ctx.lineTo(0,midY);});
       glowLine(()=>{ctx.beginPath();ctx.moveTo(ex1,midY);ctx.lineTo(canvas.width,midY);});
+      ctx.restore();
+    } else if(hoveredEntityIndex!==null&&entities[hoveredEntityIndex]===e){
+      const bb=boundingBox(e.cells);
+      const ex0=(e.x+bb.minX)*CELL,ey0=(e.y+bb.minY)*CELL,ex1=(e.x+bb.maxX+1)*CELL,ey1=(e.y+bb.maxY+1)*CELL;
+      const midX=Math.round((ex0+ex1)/2)+.5,midY=Math.round((ey0+ey1)/2)+.5;
+      ctx.save();ctx.globalCompositeOperation='source-over';ctx.setLineDash([]);
+      function glowLineHover(draw){ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.shadowColor='white';ctx.shadowBlur=8;ctx.lineWidth=3;draw();ctx.stroke();ctx.strokeStyle='rgba(255,255,255,0.7)';ctx.shadowBlur=0;ctx.lineWidth=1;draw();ctx.stroke();}
+      glowLineHover(()=>{ctx.beginPath();ctx.rect(ex0+.5,ey0+.5,ex1-ex0-1,ey1-ey0-1);});
+      glowLineHover(()=>{ctx.beginPath();ctx.moveTo(midX,ey0);ctx.lineTo(midX,0);});
+      glowLineHover(()=>{ctx.beginPath();ctx.moveTo(midX,ey1);ctx.lineTo(midX,canvas.height);});
+      glowLineHover(()=>{ctx.beginPath();ctx.moveTo(ex0,midY);ctx.lineTo(0,midY);});
+      glowLineHover(()=>{ctx.beginPath();ctx.moveTo(ex1,midY);ctx.lineTo(canvas.width,midY);});
       ctx.restore();
     }
   });
