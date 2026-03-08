@@ -666,6 +666,10 @@
   <div id="mainMenu" class="main-menu">
     <div class="main-menu-title">VECTORION</div>
     <div class="main-menu-sub version-label" style="color:#ffdd00;opacity:0.75;text-shadow:0 0 8px rgba(255,221,0,0.3);"></div>
+    <button class="menu-btn" id="menuNew">
+      <span class="menu-btn-icon">✦</span>
+      <span class="menu-btn-text">CREATE NEW GAME<span class="menu-btn-sub">configure and start</span></span>
+    </button>
     <button class="menu-btn" id="menuContinue" disabled>
       <span class="menu-btn-icon">▶</span>
       <span class="menu-btn-text">CONTINUE GAME<span class="menu-btn-sub" id="continueSubtext">no active session</span></span>
@@ -673,10 +677,6 @@
     <button class="menu-btn" id="menuLoad">
       <span class="menu-btn-icon">⬆</span>
       <span class="menu-btn-text">LOAD FROM FILE<span class="menu-btn-sub">import a .json save</span></span>
-    </button>
-    <button class="menu-btn" id="menuNew">
-      <span class="menu-btn-icon">✦</span>
-      <span class="menu-btn-text">CREATE NEW GAME<span class="menu-btn-sub">configure and start</span></span>
     </button>
   </div>
 
@@ -754,13 +754,13 @@
         <div class="size-inputs">
           <div class="entity-input-wrap">
             <button class="entity-count-btn" id="btnWMinus">−</button>
-            <input type="number" id="maxWInput" value="4" min="1" max="8">
+            <input type="number" id="maxWInput" value="3" min="1" max="8">
             <button class="entity-count-btn" id="btnWPlus">+</button>
           </div>
           <span class="size-x-label">×</span>
           <div class="entity-input-wrap">
             <button class="entity-count-btn" id="btnHMinus">−</button>
-            <input type="number" id="maxHInput" value="4" min="1" max="8">
+            <input type="number" id="maxHInput" value="3" min="1" max="8">
             <button class="entity-count-btn" id="btnHPlus">+</button>
           </div>
         </div>
@@ -1286,8 +1286,8 @@ function readTypeCounts(){return{destroy:Math.max(0,Math.min(10,parseInt(documen
 function startNewGame(){
   diagonalMode=document.getElementById('diagonalToggle').checked;
   showSpeedTrail=document.getElementById('speedTrailToggle').checked;
-  maxEntityW=Math.max(1,Math.min(8,parseInt(document.getElementById('maxWInput').value)||4));
-  maxEntityH=Math.max(1,Math.min(8,parseInt(document.getElementById('maxHInput').value)||4));
+  maxEntityW=Math.max(1,Math.min(8,parseInt(document.getElementById('maxWInput').value)||3));
+  maxEntityH=Math.max(1,Math.min(8,parseInt(document.getElementById('maxHInput').value)||3));
   maxSpeed=Math.max(1,Math.min(10,parseInt(document.getElementById('maxSpeedInput').value)||3));
   speed=levelToMs(Math.max(1,Math.min(25,parseInt(document.getElementById('initSpeedInput').value)||20)));
   document.getElementById('optionsSpeedInput').value=String(speedToLevel(speed));
@@ -1346,8 +1346,11 @@ function showConfigScreen(){
   document.getElementById('destroyCountInput').value='0';
   document.getElementById('bounceCountInput').value='10';
   document.getElementById('stopCountInput').value='3';
-  document.getElementById('devourCountInput').value='3';
+  document.getElementById('devourCountInput').value='1';
   document.getElementById('changeCountInput').value='0';
+  document.getElementById('maxWInput').value='3';
+  document.getElementById('maxHInput').value='3';
+  document.getElementById('maxSpeedInput').value='3';
   document.getElementById('initSpeedInput').value='20';
   document.getElementById('diagonalToggle').checked=true;
   document.getElementById('speedTrailToggle').checked=true;
@@ -1437,8 +1440,8 @@ wireSpinner('btnBounceMinus','bounceCountInput','btnBouncePlus',0,20,10);
 wireSpinner('btnStopMinus','stopCountInput','btnStopPlus',0,10,3);
 wireSpinner('btnDevourMinus','devourCountInput','btnDevourPlus',0,10,3);
 wireSpinner('btnChangeMinus','changeCountInput','btnChangePlus',0,10,0);
-wireSpinner('btnWMinus','maxWInput','btnWPlus',1,8,4);
-wireSpinner('btnHMinus','maxHInput','btnHPlus',1,8,4);
+wireSpinner('btnWMinus','maxWInput','btnWPlus',1,8,3);
+wireSpinner('btnHMinus','maxHInput','btnHPlus',1,8,3);
 wireSpinner('btnMaxSpeedMinus','maxSpeedInput','btnMaxSpeedPlus',1,10,3);
 wireSpinner('btnInitSpeedMinus','initSpeedInput','btnInitSpeedPlus',1,25,20);
 

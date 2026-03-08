@@ -1,7 +1,6 @@
 # Work in Progress
 
 * feat: rename properties to Reactions. Destroy, Bounce, Stop, Devour, Change
-* feat: game log - add game log to savegame (localStorage and json file save)
 
 ## Minor or undecided changes
 * fix: game options menu to show existing entities with the ability to change their numbers
