@@ -1,4 +1,8 @@
-2026-03-08
+# 2026-03-08 -
+
+* feat: start a new game when backspace key is pressed with default settings
+
+# 2026-03-07 - Initial game setup, Collision reactions, save/load functions, LOS
 
 * epic: add Vision to entities
 * feat: at the beginning of each tick, each entity towards its movement direction has line of sight until the end of the game area

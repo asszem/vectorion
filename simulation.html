@@ -892,6 +892,7 @@
     <span><button class="key" id="ctrlSpace">SPACE</button> START / PAUSE</span>
     <span><button class="key">SHIFT-SPACE</button> Step 1 tick</span>
     <span><button class="key" id="ctrlEsc">ESC</button> Options</span>
+    <span><button class="key" id="ctrlBackspace">BACKSPACE</button> New Game</span>
     <span>SLOWER <button class="key" id="ctrlSlower">-</button> <span id="speedDisplay" style="font-family:'Share Tech Mono',monospace;color:var(--green);min-width:1.6em;display:inline-block;text-align:center;">20</span> <button class="key" id="ctrlFaster">+</button> FASTER</span>
   </div>
   <div style="margin-left:auto;display:flex;gap:10px;align-items:center;">
@@ -1487,6 +1488,7 @@ function resumeFromOptions(){
 }
 
 function openOptions(){clearInterval(intervalId);intervalId=null;running=false;closeEntityEditor(false);updateStats();draw();showGameOptions();}
+function openNewGameMenu(){clearInterval(intervalId);intervalId=null;running=false;closeEntityEditor(false);updateStats();draw();showConfigScreen();overlay.classList.remove('hidden');entitiesSection.style.display='none';document.getElementById('ctrlEsc').classList.remove('esc-active');}
 
 function handleOpenOptions(e){
   if(entityEditor.classList.contains('visible'))return;
@@ -1501,10 +1503,13 @@ document.addEventListener('keydown',e=>{if(e.code==='Escape'||e.key==='Escape'){
 document.getElementById('headerGameName').addEventListener('click',e=>{if(overlay.classList.contains('hidden')&&!entityEditor.classList.contains('visible')){handleOpenOptions(e);}});
 
 window.addEventListener('keydown',e=>{
+  const activeEl=document.activeElement;
+  if(activeEl&&(activeEl.tagName==='INPUT'||activeEl.tagName==='TEXTAREA'||activeEl.isContentEditable))return;
   const numberInputs=['destroyCountInput','bounceCountInput','stopCountInput','maxWInput','maxHInput','devourCountInput','changeCountInput'];
-  if(numberInputs.includes(document.activeElement.id))return;
+  if(activeEl&&numberInputs.includes(activeEl.id))return;
   const configVisible=document.getElementById('configScreen').style.display!=='none'&&!overlay.classList.contains('hidden');
   if(configVisible){if(e.code==='Space'){e.preventDefault();hasActiveGame=true;startNewGame();return;}if(e.code==='Escape'){e.preventDefault();showMainMenu();return;}}
+  if((e.code==='Backspace'||e.key==='Backspace')&&overlay.classList.contains('hidden')&&!entityEditor.classList.contains('visible')){e.preventDefault();openNewGameMenu();return;}
   if((e.key==='O'||e.key==='o')&&overlay.classList.contains('hidden')&&!entityEditor.classList.contains('visible')){e.preventDefault();handleOpenOptions(e);}
   if(e.code==='Space'&&e.shiftKey&&overlay.classList.contains('hidden')&&!running){e.preventDefault();step();}
   else if(e.code==='Space'&&!e.shiftKey){e.preventDefault();toggleRunning();}
@@ -1566,6 +1571,7 @@ document.getElementById('optionsExitToMenu').addEventListener('click',showMainMe
 
 document.getElementById('ctrlSpace').addEventListener('click',()=>toggleRunning());
 document.getElementById('ctrlEsc').addEventListener('click',()=>{openOptions();document.getElementById('ctrlEsc').classList.add('esc-active');});
+document.getElementById('ctrlBackspace').addEventListener('click',openNewGameMenu);
 document.getElementById('ctrlFaster').addEventListener('click',()=>setSpeed(speed-20));
 document.getElementById('ctrlSlower').addEventListener('click',()=>setSpeed(speed+20));
 

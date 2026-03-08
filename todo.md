@@ -3,7 +3,10 @@
 * fix: display crosshair and line of sight when the simulation runs and user hovers over entity list
 * fix: entity not seeing other entity, even if it is partially in its line of sight
 * fix: seen other entity display font barely visible, make it bigger
-- Start a new game when backspace key is pressed with default settings
+
+* fix: collision detection when entity is stopped, nothing should be able to overlap it
+* fix: add enable/disable entity trail option to Paused Game Options menu
+
 
 
 ## Minor or undecided changes
