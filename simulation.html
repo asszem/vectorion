@@ -1222,30 +1222,45 @@ const editorTitle=document.getElementById('editorTitle');
 const editorNameInput=document.getElementById('editorNameInput');
 
 function buildLegendIn(container) {
-  const prevHoveredEntity=hoveredEntityIndex!==null?entities[hoveredEntityIndex]:null;
   container.innerHTML='';
-  hoveredEntityIndex=null;
+  const propColors={destroy:'#ff2222',bounce:'#00a828',stop:'#ffdd00',devour:'#ff8800',change:'#cc44ff'};
+  const propIcons={destroy:'☠',bounce:'◈',stop:'◼',devour:'◉',change:'⟳'};
   entities.forEach((e,idx)=>{
-    if(e===prevHoveredEntity)hoveredEntityIndex=idx;
-    const propColors={destroy:'#ff2222',bounce:'#00a828',stop:'#ffdd00',devour:'#ff8800',change:'#cc44ff'};
-    const propIcons={destroy:'☠',bounce:'◈',stop:'◼',devour:'◉',change:'⟳'};
     const propLabel=e.movementProperty==='change'?changeLabel(e.changeTarget||'bounce'):e.movementProperty.toUpperCase()+(e.movementProperty==='stop'&&e.stopped?' [HALTED]':'');
     const propColor=propColors[e.movementProperty]||'var(--green-dim)';
     const propIcon=propIcons[e.movementProperty]||'?';
     const isSelected=editingEntityIndex===idx;
+    const isHovered=hoveredEntityIndex===idx;
     const item=document.createElement('div');
     item.className='legend-item';
+    item.dataset.idx=idx;
     item.title='Click to edit';
     if(isSelected){item.style.borderColor='rgba(255,255,255,0.85)';item.style.boxShadow='0 0 6px rgba(255,255,255,0.4)';}
-    const seenHtml=e.followTarget?`<div class="legend-item-sees" style="color:${e.followTarget.def.main};text-shadow:0 0 5px ${e.followTarget.def.main}60;">→ <span class="seen-name">FOLLOWING — ${e.followTarget.def.label}</span></div>`:e.seenEntity?`<div class="legend-item-sees" style="color:${e.seenEntity.def.main};text-shadow:0 0 5px ${e.seenEntity.def.main}60;">👁 <span class="seen-name">${e.seenEntity.def.label}</span></div>`:`<div class="legend-item-sees" style="opacity:0.35;">👁 <span class="seen-name">None</span></div>`;
+    const seenHtml=e.followTarget?`<div class="legend-item-sees" style="color:${e.followTarget.def.main};text-shadow:0 0 5px ${e.followTarget.def.main}60;">→ <span class="seen-name">FOLLOWING — ${e.followTarget.def.label}</span></div>`:e.seenEntity?`<div class="legend-item-sees" style="color:${e.seenEntity.def.main};text-shadow:0 0 5px ${e.seenEntity.def.main}60;">👁 <span class="seen-name">SEEING — ${e.seenEntity.def.label}</span></div>`:`<div class="legend-item-sees" style="opacity:0.35;">👁 <span class="seen-name">None</span></div>`;
     item.innerHTML=`<div class="legend-item-name"><span style="font-family:'Share Tech Mono',monospace;font-weight:bold;color:${e.def.main};text-shadow:0 0 8px ${e.def.main};font-size:1rem;">@</span><span style="color:${e.def.main};text-shadow:0 0 6px ${e.def.main}40;">${e.def.label}</span><span style="opacity:0.4;font-size:0.65rem;font-family:'Share Tech Mono',monospace;">${e.cells.length}c</span></div><div class="legend-item-prop" style="color:${propColor};">${propIcon} ${propLabel} <span style="opacity:0.5;font-size:0.6rem;color:var(--green-dim);">SPD ${e.speed||1}</span></div>${seenHtml}`;
-    item.addEventListener('click',()=>openEntityEditor(idx));
-    item.addEventListener('mouseenter',()=>{hoveredEntityIndex=idx;if(!running)draw();});
-    item.addEventListener('mouseleave',()=>{hoveredEntityIndex=null;if(!running)draw();});
     container.appendChild(item);
   });
 }
 function buildLegend(){buildLegendIn(document.getElementById('entityLegend'));}
+
+// Event delegation for legend — survives DOM rebuilds every tick
+const entityLegendEl=document.getElementById('entityLegend');
+entityLegendEl.addEventListener('mousedown',e=>{
+  const item=e.target.closest('.legend-item');
+  if(!item)return;
+  e.preventDefault();
+  const idx=parseInt(item.dataset.idx);
+  if(!isNaN(idx))openEntityEditor(idx);
+});
+entityLegendEl.addEventListener('mousemove',e=>{
+  const item=e.target.closest('.legend-item');
+  const idx=item?parseInt(item.dataset.idx):null;
+  const next=idx!=null&&!isNaN(idx)?idx:null;
+  if(next!==hoveredEntityIndex){hoveredEntityIndex=next;if(!running)draw();}
+});
+entityLegendEl.addEventListener('mouseleave',()=>{
+  if(hoveredEntityIndex!==null){hoveredEntityIndex=null;if(!running)draw();}
+});
 
 function computeVision() {
   const cellMap=new Map();
@@ -1263,8 +1278,7 @@ function computeVision() {
     });
     e.seenEntity=seen;
     if(e.visualReaction==='follow'){
-      if(seen)e.followTarget=seen;
-      // if nothing seen, keep existing followTarget so entity continues pursuing
+      if(seen&&!e.followTarget)e.followTarget=seen; // lock on first seen; don't switch
     } else {
       e.followTarget=null;
     }
@@ -1969,10 +1983,12 @@ const VR_LABELS={ignore:'IGNORE',follow:'FOLLOW',mark:'MARK'};
 const VR_COLORS={ignore:'var(--green-dim)',follow:'#00ff41',mark:'#ffdd00'};
 let selectedVR='ignore';
 function updateVRDisplay(vr){
+  const btn=document.getElementById('vrCurrentBtn');
   const icon=document.getElementById('vrCurrentIcon'),label=document.getElementById('vrCurrentLabel');
   const col=VR_COLORS[vr]||'var(--green-dim)';
   icon.textContent=VR_ICONS[vr]||'○';icon.style.color=col;
   label.textContent=VR_LABELS[vr]||vr.toUpperCase();label.style.color=col;
+  if(btn){btn.style.color=col;btn.style.borderColor=col;}
 }
 const vrCurrentBtn=document.getElementById('vrCurrentBtn');
 const vrDropdown=document.getElementById('vrDropdown');
