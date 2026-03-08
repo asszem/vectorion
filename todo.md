@@ -7,7 +7,10 @@
 * fix: collision detection when entity is stopped, nothing should be able to overlap it
 * fix: add enable/disable entity trail option to Paused Game Options menu
 
-
+* misc(cursor-vim): map :E to saveAll
+* misc(cursor-vim): map Ctrl-O to jump to location
+* misc(cursor): save settings.json to .mydotfiles
+* misc(git-bash): install goto
 
 ## Minor or undecided changes
 
