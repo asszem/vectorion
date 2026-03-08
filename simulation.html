@@ -455,20 +455,23 @@
     position: fixed; z-index: 9999;
     background: #0a180a; border: 1px solid var(--green-dim); border-top: none;
   }
-  .prop-option {
+  .prop-option, .vr-option {
     display: block; width: 100%; box-sizing: border-box; background: none;
     border: none; border-bottom: 1px solid rgba(0,168,40,0.15);
     font-family: 'Share Tech Mono', monospace; font-size: 0.66rem;
     letter-spacing: 0.1em; padding: 8px 10px; cursor: pointer; text-align: left;
     transition: background 0.12s;
   }
-  .prop-option:last-child { border-bottom: none; }
-  .prop-option:hover { background: rgba(255,255,255,0.06); filter: brightness(1.3); }
+  .prop-option:last-child, .vr-option:last-child { border-bottom: none; }
+  .prop-option:hover, .vr-option:hover { background: rgba(255,255,255,0.06); filter: brightness(1.3); }
   .prop-option[data-prop="destroy"] { color: #ff6666; }
   .prop-option[data-prop="bounce"]  { color: #00ff41; }
   .prop-option[data-prop="stop"]    { color: #ffdd00; }
   .prop-option[data-prop="devour"]  { color: #ff8800; }
   .prop-option[data-prop="change"]  { color: #cc44ff; }
+  .vr-option[data-vr="ignore"] { color: var(--green-dim); }
+  .vr-option[data-vr="follow"] { color: #00ff41; }
+  .vr-option[data-vr="mark"]   { color: #ffdd00; }
 
   .editor-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-start; }
 
@@ -584,24 +587,31 @@
   .size-inputs { display: flex; align-items: center; gap: 6px; }
   .size-x-label { font-size: 0.8rem; color: var(--green-dim); letter-spacing: 0.1em; }
 
+  .section-help-btn {
+    background: none; border: 1px solid var(--green-dim); color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace; font-size: 0.55rem; line-height: 1;
+    padding: 1px 5px; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  }
+  .section-help-btn:hover { color: var(--green); border-color: var(--green); }
+
   /* HELP MODAL */
-  #helpBackdrop {
+  #helpBackdrop, #vrHelpBackdrop {
     position: fixed; inset: 0; background: rgba(2,13,2,0.82); z-index: 500;
     display: flex; align-items: center; justify-content: center;
     opacity: 0; pointer-events: none; transition: opacity 0.2s;
   }
-  #helpBackdrop.visible { opacity: 1; pointer-events: all; }
-  #helpModal {
+  #helpBackdrop.visible, #vrHelpBackdrop.visible { opacity: 1; pointer-events: all; }
+  #helpModal, #vrHelpModal {
     position: relative; background: var(--panel); border: 1px solid var(--green-dim);
     box-shadow: 0 0 40px var(--green-glow); padding: 32px 36px 24px;
     max-width: 520px; width: 90%; max-height: 80vh; overflow-y: auto;
   }
-  #helpClose {
+  #helpClose, #vrHelpClose {
     position: absolute; top: 10px; right: 12px; background: none; border: none;
     color: var(--green-dim); font-size: 1rem; cursor: pointer;
     font-family: 'Share Tech Mono', monospace; line-height: 1; transition: color 0.15s;
   }
-  #helpClose:hover { color: var(--green); }
+  #helpClose:hover, #vrHelpClose:hover { color: var(--green); }
   .help-title { font-family: 'VT323', monospace; font-size: 1.8rem; letter-spacing: 0.25em; text-shadow: 0 0 10px var(--green); margin-bottom: 20px; }
   .help-grid { display: flex; flex-direction: column; gap: 16px; }
   .help-entry { display: flex; flex-direction: column; gap: 4px; border-left: 2px solid rgba(0,168,40,0.3); padding-left: 12px; }
@@ -618,7 +628,6 @@
     <h1><span style="animation:flicker 6s infinite;display:inline;">VECTORION</span>&nbsp;<span id="headerGameName" style="font-family:'Share Tech Mono',monospace;font-size:0.9rem;color:var(--green-dim);letter-spacing:0.2em;font-weight:normal;vertical-align:middle;animation:none;"></span></h1>
   </header>
   <div id="autosaveToast" style="margin-left:auto;margin-right:10px;font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:#00ff41;letter-spacing:0.18em;opacity:0;transition:opacity 0.4s;white-space:nowrap;align-self:center;text-shadow:0 0 6px rgba(0,255,65,0.5);">✓ SIMULATION SAVED</div>
-  <div style="flex-shrink:0;"><button class="key" id="ctrlHelp">?</button></div>
 </div>
 
 <!-- MIDDLE ROW -->
@@ -637,13 +646,17 @@
       <div id="entityEditor">
         <div class="editor-box">
           <div class="editor-name-row">
-            <div class="editor-name-inner">
+            <span style="font-size:0.55rem;color:var(--green-dim);letter-spacing:0.2em;white-space:nowrap;">ENTITY OPTIONS</span>
+            <div class="editor-name-inner" style="margin-left:8px;">
               <div class="editor-title" id="editorTitle" title="Click to rename">EDIT ENTITY</div>
               <input class="editor-name-input" id="editorNameInput" type="text" maxlength="20" placeholder="NAME" style="display:none;">
             </div>
             <span class="editor-rename-hint" id="editorRenameHint">✎ click name to rename</span>
           </div>
-          <div style="font-size:0.58rem;color:var(--green-dim);letter-spacing:0.12em;margin-bottom:6px;">COLLISION REACTION</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:0.58rem;color:var(--green-dim);letter-spacing:0.12em;">COLLISION REACTION</span>
+            <button class="section-help-btn" id="collisionHelpBtn">?</button>
+          </div>
           <div class="prop-selector-wrap">
             <button class="prop-current-btn" id="propCurrentBtn">
               <span id="propCurrentIcon">◈</span>
@@ -659,7 +672,10 @@
             </div>
           </div>
 
-          <div style="font-size:0.58rem;color:var(--green-dim);letter-spacing:0.12em;margin-bottom:6px;">VISUAL REACTION</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:0.58rem;color:var(--green-dim);letter-spacing:0.12em;">VISUAL REACTION</span>
+            <button class="section-help-btn" id="vrHelpBtn">?</button>
+          </div>
           <div class="prop-selector-wrap">
             <button class="prop-current-btn" id="vrCurrentBtn">
               <span id="vrCurrentIcon">○</span>
@@ -668,6 +684,7 @@
             </button>
             <div class="prop-dropdown" id="vrDropdown" style="display:none;">
               <button class="vr-option" data-vr="ignore">○ IGNORE</button>
+              <button class="vr-option" data-vr="follow">→ FOLLOW</button>
               <button class="vr-option" data-vr="mark">◎ MARK</button>
             </div>
           </div>
@@ -1010,6 +1027,28 @@
   </div>
 </div>
 
+<div id="vrHelpBackdrop">
+  <div id="vrHelpModal">
+    <button id="vrHelpClose">✕</button>
+    <div class="help-title">VISUAL REACTION</div>
+    <div class="help-grid">
+      <div class="help-entry">
+        <div class="help-prop" style="color:var(--green-dim);">○ IGNORE</div>
+        <div class="help-desc">The entity pays no attention to other entities in its line of sight. Default behaviour.</div>
+      </div>
+      <div class="help-entry">
+        <div class="help-prop" style="color:var(--green);">→ FOLLOW</div>
+        <div class="help-desc">When the entity spots another entity in its line of sight, it locks on and steers toward it each tick. The target is retained even when out of direct sight. Selecting IGNORE removes the follow target.</div>
+      </div>
+      <div class="help-entry">
+        <div class="help-prop" style="color:var(--green-dim);">◎ MARK</div>
+        <div class="help-desc">Placeholder — reserved for a future visual reaction behaviour.</div>
+      </div>
+    </div>
+    <div class="help-hint">click outside or press ESC to close</div>
+  </div>
+</div>
+
 <script>
   const currentVersion = "v6.00";
   const versionElements = document.querySelectorAll('.version-label');
@@ -1090,7 +1129,7 @@ function makeEntities(typeCounts) {
     const cx=Math.round(50+32*Math.cos(angle)), cy=Math.round(50+32*Math.sin(angle));
     const x=Math.max(0,Math.min(COLS-w,cx-Math.floor(w/2))), y=Math.max(0,Math.min(ROWS-h,cy-Math.floor(h/2)));
     const centX=cells.reduce((s,c)=>s+c.dx,0)/cells.length, centY=cells.reduce((s,c)=>s+c.dy,0)/cells.length;
-    return { x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)), seenEntity:null, visualReaction:'ignore' };
+    return { x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)), seenEntity:null, visualReaction:'ignore', followTarget:null };
   });
 }
 
@@ -1157,7 +1196,7 @@ function buildLegendIn(container) {
     item.className='legend-item';
     item.title='Click to edit';
     if(isSelected){item.style.borderColor='rgba(255,255,255,0.85)';item.style.boxShadow='0 0 6px rgba(255,255,255,0.4)';}
-    const seenHtml=e.seenEntity?`<div class="legend-item-sees" style="color:${e.seenEntity.def.main};text-shadow:0 0 5px ${e.seenEntity.def.main}60;">👁 <span class="seen-name">${e.seenEntity.def.label}</span></div>`:`<div class="legend-item-sees" style="opacity:0.35;">👁 <span class="seen-name">None</span></div>`;
+    const seenHtml=e.followTarget?`<div class="legend-item-sees" style="color:${e.followTarget.def.main};text-shadow:0 0 5px ${e.followTarget.def.main}60;">→ <span class="seen-name">FOLLOWING — ${e.followTarget.def.label}</span></div>`:e.seenEntity?`<div class="legend-item-sees" style="color:${e.seenEntity.def.main};text-shadow:0 0 5px ${e.seenEntity.def.main}60;">👁 <span class="seen-name">${e.seenEntity.def.label}</span></div>`:`<div class="legend-item-sees" style="opacity:0.35;">👁 <span class="seen-name">None</span></div>`;
     item.innerHTML=`<div class="legend-item-name"><span style="font-family:'Share Tech Mono',monospace;font-weight:bold;color:${e.def.main};text-shadow:0 0 8px ${e.def.main};font-size:1rem;">@</span><span style="color:${e.def.main};text-shadow:0 0 6px ${e.def.main}40;">${e.def.label}</span><span style="opacity:0.4;font-size:0.65rem;font-family:'Share Tech Mono',monospace;">${e.cells.length}c</span></div><div class="legend-item-prop" style="color:${propColor};">${propIcon} ${propLabel} <span style="opacity:0.5;font-size:0.6rem;color:var(--green-dim);">SPD ${e.speed||1}</span></div>${seenHtml}`;
     item.addEventListener('click',()=>openEntityEditor(idx));
     item.addEventListener('mouseenter',()=>{hoveredEntityIndex=idx;if(!running)draw();});
@@ -1182,10 +1221,27 @@ function computeVision() {
       }
     });
     e.seenEntity=seen;
+    if(e.visualReaction==='follow'){
+      if(seen)e.followTarget=seen;
+      // if nothing seen, keep existing followTarget so entity continues pursuing
+    } else {
+      e.followTarget=null;
+    }
   });
 }
 
 function step() {
+  // Steer following entities toward their target
+  entities.forEach(e=>{
+    if(!e.followTarget)return;
+    if(!entities.includes(e.followTarget)){e.followTarget=null;return;} // target destroyed
+    const tdx=(e.followTarget.x+e.followTarget.centX)-(e.x+e.centX);
+    const tdy=(e.followTarget.y+e.followTarget.centY)-(e.y+e.centY);
+    if(tdx===0&&tdy===0)return;
+    const dirs=getDirSet();
+    const best=dirs.reduce((a,d)=>d.dx*tdx+d.dy*tdy>a.dx*tdx+a.dy*tdy?d:a,dirs[0]);
+    e.dir=best;
+  });
   // Phase 1: move each entity speed tiles, checking walls at each sub-step
   // Result: final positions stored in next[]
   const next = entities.map(e => {
@@ -1811,7 +1867,7 @@ function closeEntityEditor(revert){
   if(!revert&&editingEntityIndex!==null&&selectedProp){
     const e=entities[editingEntityIndex];
     if(e&&e.movementProperty!==selectedProp){const saved=e.def.label;e.movementProperty=selectedProp;e.def=makeEntityDef(editingEntityIndex,entities.length,selectedProp);e.def.label=saved;if(selectedProp!=='stop')e.stopped=false;if(selectedProp==='change'&&!e.changeTarget)e.changeTarget=randomChangeTarget(null);e.trail=[];}
-    if(e)e.visualReaction=selectedVR;
+    if(e){e.visualReaction=selectedVR;if(selectedVR==='ignore')e.followTarget=null;}
   }
   propDropdown.style.display='none';vrDropdown.style.display='none';
   entityEditor.classList.remove('visible');editingEntityIndex=null;selectedProp=null;originalProp=null;wasRunningBeforeEdit=false;buildLegend();draw();
@@ -1838,12 +1894,15 @@ editorNameInput.addEventListener('blur',commitNameEdit);
 editorNameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitNameEdit();}if(e.key==='Escape'){e.preventDefault();e.stopPropagation();editorNameInput.style.display='none';editorTitle.style.display='';const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='';}});
 
 // Visual Reaction dropdown
-const VR_ICONS={ignore:'○',mark:'◎'};
-const VR_LABELS={ignore:'IGNORE',mark:'MARK'};
+const VR_ICONS={ignore:'○',follow:'→',mark:'◎'};
+const VR_LABELS={ignore:'IGNORE',follow:'FOLLOW',mark:'MARK'};
+const VR_COLORS={ignore:'var(--green-dim)',follow:'#00ff41',mark:'#ffdd00'};
 let selectedVR='ignore';
 function updateVRDisplay(vr){
-  document.getElementById('vrCurrentIcon').textContent=VR_ICONS[vr]||'○';
-  document.getElementById('vrCurrentLabel').textContent=VR_LABELS[vr]||vr.toUpperCase();
+  const icon=document.getElementById('vrCurrentIcon'),label=document.getElementById('vrCurrentLabel');
+  const col=VR_COLORS[vr]||'var(--green-dim)';
+  icon.textContent=VR_ICONS[vr]||'○';icon.style.color=col;
+  label.textContent=VR_LABELS[vr]||vr.toUpperCase();label.style.color=col;
 }
 const vrCurrentBtn=document.getElementById('vrCurrentBtn');
 const vrDropdown=document.getElementById('vrDropdown');
@@ -1993,6 +2052,7 @@ function importEntities(text) {
       speed: (typeof src.speed === 'number' && src.speed >= 1) ? src.speed : 1,
       seenEntity: null,
       visualReaction: src.visualReaction || 'ignore',
+      followTarget: null,
     };
   });
 
@@ -2034,15 +2094,24 @@ window.addEventListener('keydown',e=>{const b=document.getElementById('importErr
 
 document.getElementById('importFileInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>importEntities(ev.target.result);r.readAsText(f);e.target.value='';});
 
-// Help
+// Help — Collision Reaction
 const helpBackdrop=document.getElementById('helpBackdrop');
 let wasRunningBeforeHelp=false;
 function openHelp(){wasRunningBeforeHelp=running;if(running){running=false;clearInterval(intervalId);intervalId=null;document.getElementById('statusDisplay').textContent='PAUSED';}helpBackdrop.classList.add('visible');}
 function closeHelp(){helpBackdrop.classList.remove('visible');if(wasRunningBeforeHelp){running=true;intervalId=setInterval(step,speed);document.getElementById('statusDisplay').textContent='RUNNING';}wasRunningBeforeHelp=false;}
-document.getElementById('ctrlHelp').addEventListener('click',openHelp);
+document.getElementById('collisionHelpBtn').addEventListener('click',openHelp);
 document.getElementById('helpClose').addEventListener('click',closeHelp);
 helpBackdrop.addEventListener('click',e=>{if(e.target===helpBackdrop)closeHelp();});
 window.addEventListener('keydown',e=>{if(helpBackdrop.classList.contains('visible')&&e.code==='Escape'){e.preventDefault();e.stopImmediatePropagation();closeHelp();}},true);
+
+// Help — Visual Reaction
+const vrHelpBackdrop=document.getElementById('vrHelpBackdrop');
+function openVRHelp(){vrHelpBackdrop.classList.add('visible');}
+function closeVRHelp(){vrHelpBackdrop.classList.remove('visible');}
+document.getElementById('vrHelpBtn').addEventListener('click',openVRHelp);
+document.getElementById('vrHelpClose').addEventListener('click',closeVRHelp);
+vrHelpBackdrop.addEventListener('click',e=>{if(e.target===vrHelpBackdrop)closeVRHelp();});
+window.addEventListener('keydown',e=>{if(vrHelpBackdrop.classList.contains('visible')&&e.code==='Escape'){e.preventDefault();e.stopImmediatePropagation();closeVRHelp();}},true);
 
 window.addEventListener('resize',()=>{leftColW=null;rightTopH=null;resizeCanvas();});
 
