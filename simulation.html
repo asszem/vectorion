@@ -423,22 +423,33 @@
   }
   .editor-rename-hint:hover { opacity: 1; }
 
-  .editor-prop-btn {
-    display: block; width: 100%; box-sizing: border-box;
-    background: none; border: 1px solid var(--green-dim); color: var(--green-dim);
-    font-family: 'Share Tech Mono', monospace; font-size: 0.68rem;
-    letter-spacing: 0.12em; padding: 7px 10px; margin: 5px 0;
-    cursor: pointer;
-    transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
-    text-align: left;
+  .prop-selector-wrap { margin-bottom: 12px; }
+  .prop-current-btn {
+    display: flex; align-items: center; gap: 6px; width: 100%; box-sizing: border-box;
+    background: none; border: 1px solid; font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.1em; padding: 8px 10px;
+    cursor: pointer; text-align: left; transition: background 0.15s, box-shadow 0.15s;
   }
-  .editor-prop-btn:hover { background: rgba(0,255,65,0.06); }
-  .editor-prop-btn.selected { border-color: currentColor; box-shadow: 0 0 8px currentColor; background: rgba(255,255,255,0.04); }
-  .editor-prop-btn[data-prop="destroy"] { color: #ff6666; }
-  .editor-prop-btn[data-prop="bounce"]  { color: #00ff41; }
-  .editor-prop-btn[data-prop="stop"]    { color: #ffdd00; }
-  .editor-prop-btn[data-prop="devour"]  { color: #ff8800; }
-  .editor-prop-btn[data-prop="change"]  { color: #cc44ff; }
+  .prop-current-btn:hover { background: rgba(0,255,65,0.06); box-shadow: 0 0 8px currentColor; }
+  .prop-dropdown-arrow { margin-left: auto; opacity: 0.6; font-size: 0.65rem; }
+  .prop-dropdown {
+    position: fixed; z-index: 9999;
+    background: #0a180a; border: 1px solid var(--green-dim); border-top: none;
+  }
+  .prop-option {
+    display: block; width: 100%; box-sizing: border-box; background: none;
+    border: none; border-bottom: 1px solid rgba(0,168,40,0.15);
+    font-family: 'Share Tech Mono', monospace; font-size: 0.66rem;
+    letter-spacing: 0.1em; padding: 8px 10px; cursor: pointer; text-align: left;
+    transition: background 0.12s;
+  }
+  .prop-option:last-child { border-bottom: none; }
+  .prop-option:hover { background: rgba(255,255,255,0.06); filter: brightness(1.3); }
+  .prop-option[data-prop="destroy"] { color: #ff6666; }
+  .prop-option[data-prop="bounce"]  { color: #00ff41; }
+  .prop-option[data-prop="stop"]    { color: #ffdd00; }
+  .prop-option[data-prop="devour"]  { color: #ff8800; }
+  .prop-option[data-prop="change"]  { color: #cc44ff; }
 
   .editor-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-start; }
 
@@ -624,12 +635,21 @@
             </div>
             <span class="editor-rename-hint" id="editorRenameHint">✎ click name to rename</span>
           </div>
-          <div style="font-size:0.58rem;color:var(--green-dim);letter-spacing:0.12em;margin-bottom:12px;">SELECT MOVEMENT PROPERTY</div>
-          <button class="editor-prop-btn" data-prop="destroy">☠ DESTROY — eliminates on contact</button>
-          <button class="editor-prop-btn" data-prop="bounce">◈ BOUNCE — deflects on contact</button>
-          <button class="editor-prop-btn" data-prop="stop">◼ STOP — freezes on contact</button>
-          <button class="editor-prop-btn" data-prop="devour">◉ DEVOUR — assimilates on contact</button>
-          <button class="editor-prop-btn" data-prop="change">⟳ CHANGE — acts then mutates</button>
+          <div style="font-size:0.58rem;color:var(--green-dim);letter-spacing:0.12em;margin-bottom:6px;">COLLISION REACTION</div>
+          <div class="prop-selector-wrap">
+            <button class="prop-current-btn" id="propCurrentBtn">
+              <span id="propCurrentIcon">◈</span>
+              <span id="propCurrentLabel">BOUNCE</span>
+              <span class="prop-dropdown-arrow">▾</span>
+            </button>
+            <div class="prop-dropdown" id="propDropdown" style="display:none;">
+              <button class="prop-option" data-prop="destroy">☠ DESTROY</button>
+              <button class="prop-option" data-prop="bounce">◈ BOUNCE</button>
+              <button class="prop-option" data-prop="stop">◼ STOP</button>
+              <button class="prop-option" data-prop="devour">◉ DEVOUR</button>
+              <button class="prop-option" data-prop="change">⟳ CHANGE</button>
+            </div>
+          </div>
 
           <div class="editor-speed-row">
             <span class="editor-speed-label">SPEED</span>
@@ -1173,7 +1193,7 @@ function step() {
   if(toStop.size>0||toResume.size>0)buildLegend();
   let didMutate=false;
   toMutate.forEach(i=>{if(toDestroy.has(i))return;const e=entities[i];const prev=e.changeTarget;e.changeTarget=randomChangeTarget(prev);flashes.push({x:e.x+e.centX,y:e.y+e.centY,age:0,color:'#cc44ff'});didMutate=true;});
-  if(didMutate){buildLegend();if(editingEntityIndex!==null){const e=entities[editingEntityIndex];if(e&&e.movementProperty==='change'){const cb=document.querySelector('.editor-prop-btn[data-prop="change"]');if(cb)cb.textContent=`⟳ CHANGE-[${e.changeTarget.toUpperCase()}] — acts then mutates`;}}}
+  if(didMutate){buildLegend();if(editingEntityIndex!==null){const e=entities[editingEntityIndex];if(e&&e.movementProperty==='change')updatePropDisplay('change',e.changeTarget);}}
   const toRemove=new Set([...toDestroy,...devourVictims]);
   // Final overlap guard: prevent surviving entities from sharing cells
   for(let i=0;i<entities.length;i++){if(toRemove.has(i))continue;for(let j=i+1;j<entities.length;j++){if(toRemove.has(j))continue;if(entitiesOverlap(entities[i],finalNext[i],entities[j],finalNext[j])){const iMoved=finalNext[i].nx!==entities[i].x||finalNext[i].ny!==entities[i].y;const jMoved=finalNext[j].nx!==entities[j].x||finalNext[j].ny!==entities[j].y;if(iMoved)finalNext[i]={nx:entities[i].x,ny:entities[i].y};else if(jMoved)finalNext[j]={nx:entities[j].x,ny:entities[j].y};}}}
@@ -1499,9 +1519,7 @@ function openEntityEditor(entityIndex){
   if(!alreadyOpen){originalProp=e.movementProperty;}else{originalProp=e.movementProperty;}
   editorNameInput.style.display='none';editorTitle.style.display='';editorTitle.textContent=e.def.label;editorTitle.style.color=e.def.main;editorTitle.style.textShadow=`0 0 10px ${e.def.main}`;
   const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='';
-  const cb=document.querySelector('.editor-prop-btn[data-prop="change"]');
-  if(cb){const ct=e.movementProperty==='change'&&e.changeTarget?e.changeTarget.toUpperCase():'?';cb.textContent=`⟳ CHANGE-[${ct}] — acts then mutates`;}
-  document.querySelectorAll('.editor-prop-btn').forEach(btn=>btn.classList.toggle('selected',btn.dataset.prop===selectedProp));
+  updatePropDisplay(selectedProp,e.changeTarget);
   updateEditorSpeed();
   entityEditor.classList.add('visible');buildLegend();draw();
 }
@@ -1524,10 +1542,11 @@ document.getElementById('editorSpeedPlus').addEventListener('click',()=>{
 });
 
 function closeEntityEditor(revert){
-  if(revert&&editingEntityIndex!==null&&originalProp){
+  if(!revert&&editingEntityIndex!==null&&selectedProp){
     const e=entities[editingEntityIndex];
-    if(e&&e.movementProperty!==originalProp){const saved=e.def.label;e.movementProperty=originalProp;e.def=makeEntityDef(editingEntityIndex,entities.length,originalProp);e.def.label=saved;if(originalProp!=='stop')e.stopped=false;e.trail=[];buildLegend();}
+    if(e&&e.movementProperty!==selectedProp){const saved=e.def.label;e.movementProperty=selectedProp;e.def=makeEntityDef(editingEntityIndex,entities.length,selectedProp);e.def.label=saved;if(selectedProp!=='stop')e.stopped=false;if(selectedProp==='change'&&!e.changeTarget)e.changeTarget=randomChangeTarget(null);e.trail=[];}
   }
+  propDropdown.style.display='none';
   entityEditor.classList.remove('visible');editingEntityIndex=null;selectedProp=null;originalProp=null;wasRunningBeforeEdit=false;buildLegend();draw();
 }
 
@@ -1551,10 +1570,30 @@ document.getElementById('editorRenameHint').addEventListener('click',startNameEd
 editorNameInput.addEventListener('blur',commitNameEdit);
 editorNameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitNameEdit();}if(e.key==='Escape'){e.preventDefault();e.stopPropagation();editorNameInput.style.display='none';editorTitle.style.display='';const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='';}});
 
-// Prop buttons
-document.querySelectorAll('.editor-prop-btn').forEach(btn=>{btn.addEventListener('click',()=>{
-  selectedProp=btn.dataset.prop;document.querySelectorAll('.editor-prop-btn').forEach(b=>b.classList.toggle('selected',b.dataset.prop===selectedProp));
-  if(editingEntityIndex!==null){const e=entities[editingEntityIndex];if(e.movementProperty!==selectedProp){const saved=e.def.label;e.movementProperty=selectedProp;e.def=makeEntityDef(editingEntityIndex,entities.length,selectedProp);e.def.label=saved;if(selectedProp!=='stop')e.stopped=false;if(selectedProp==='change'&&!e.changeTarget)e.changeTarget=randomChangeTarget(null);e.trail=[];editorTitle.style.color=e.def.main;editorTitle.style.textShadow=`0 0 10px ${e.def.main}`;editorNameInput.style.color=e.def.main;buildLegend();if(!running)draw();}}
+// Collision Reaction dropdown
+const PROP_ICONS_MAP={destroy:'☠',bounce:'◈',stop:'◼',devour:'◉',change:'⟳'};
+const PROP_COLORS_MAP={destroy:'#ff6666',bounce:'#00ff41',stop:'#ffdd00',devour:'#ff8800',change:'#cc44ff'};
+function updatePropDisplay(prop,changeTarget){
+  const btn=document.getElementById('propCurrentBtn');
+  const iconEl=document.getElementById('propCurrentIcon');
+  const labelEl=document.getElementById('propCurrentLabel');
+  if(!btn)return;
+  iconEl.textContent=PROP_ICONS_MAP[prop]||'?';
+  labelEl.textContent=prop==='change'&&changeTarget?`CHANGE → [${changeTarget.toUpperCase()}]`:prop.toUpperCase();
+  const color=PROP_COLORS_MAP[prop]||'var(--green)';
+  btn.style.color=color;
+  btn.style.borderColor=color;
+}
+const propCurrentBtn=document.getElementById('propCurrentBtn');
+const propDropdown=document.getElementById('propDropdown');
+propCurrentBtn.addEventListener('click',e=>{e.stopPropagation();const isOpen=propDropdown.style.display!=='none';if(isOpen){propDropdown.style.display='none';}else{const r=propCurrentBtn.getBoundingClientRect();propDropdown.style.top=r.bottom+'px';propDropdown.style.left=r.left+'px';propDropdown.style.width=r.width+'px';propDropdown.style.display='block';}});
+document.addEventListener('click',()=>{propDropdown.style.display='none';});
+document.querySelectorAll('.prop-option').forEach(btn=>{btn.addEventListener('click',()=>{
+  selectedProp=btn.dataset.prop;
+  const e=editingEntityIndex!==null?entities[editingEntityIndex]:null;
+  const ct=e&&e.changeTarget?e.changeTarget:null;
+  updatePropDisplay(selectedProp,selectedProp==='change'?ct:null);
+  propDropdown.style.display='none';
 });});
 document.getElementById('editorConfirm').addEventListener('click',()=>closeEntityEditor(false));
 document.getElementById('editorCancel').addEventListener('click',()=>closeEntityEditor(true));
