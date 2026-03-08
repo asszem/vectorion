@@ -251,6 +251,27 @@
     background: var(--panel);
     overflow: hidden;
   }
+  #gameCanvas { position: absolute; top: 0; left: 0; }
+  .game-resize-handle-bottom,
+  .game-resize-handle-right {
+    position: absolute;
+    background: transparent;
+    z-index: 3;
+  }
+  .game-resize-handle-bottom {
+    left: 0; right: 0; bottom: 0;
+    height: 6px;
+    cursor: ns-resize;
+  }
+  .game-resize-handle-right {
+    top: 0; bottom: 0; right: 0;
+    width: 6px;
+    cursor: ew-resize;
+  }
+  .game-resize-handle-bottom:hover,
+  .game-resize-handle-right:hover {
+    background: rgba(0,255,65,0.15);
+  }
   .game-area::before {
     content: '';
     position: absolute; inset: 0;
@@ -572,7 +593,8 @@
 
   #entityCountInput, #maxWInput, #maxHInput,
   #destroyCountInput, #bounceCountInput, #stopCountInput, #devourCountInput, #changeCountInput,
-  #maxSpeedInput, #initSpeedInput, #optionsSpeedInput, #optionsMaxSpeedInput {
+  #maxSpeedInput, #initSpeedInput, #optionsSpeedInput, #optionsMaxSpeedInput,
+  #minColsInput, #minRowsInput {
     background: none; border: none;
     border-left: 1px solid var(--green-dim); border-right: 1px solid var(--green-dim);
     color: var(--green); font-family: 'VT323', monospace; font-size: 1.4rem;
@@ -643,6 +665,8 @@
   <div class="left-col">
     <div class="game-area" id="gameArea" tabindex="0">
       <canvas id="gameCanvas"></canvas>
+      <div class="game-resize-handle-bottom" id="gameResizeBottom"></div>
+      <div class="game-resize-handle-right" id="gameResizeRight"></div>
     </div>
   </div>
 
@@ -842,6 +866,25 @@
       </div>
       <div class="config-prop-row">
         <div class="config-prop-info">
+          <span class="config-prop-name" style="color:var(--green-dim);">MIN PLAY AREA</span>
+          <span class="config-prop-desc">Minimum grid size in tiles (width × height). Used when deploying a new simulation.</span>
+        </div>
+        <div class="size-inputs">
+          <div class="entity-input-wrap">
+            <button class="entity-count-btn" id="btnMinColsMinus">−</button>
+            <input type="number" id="minColsInput" value="100" min="50" max="500">
+            <button class="entity-count-btn" id="btnMinColsPlus">+</button>
+          </div>
+          <span class="size-x-label">×</span>
+          <div class="entity-input-wrap">
+            <button class="entity-count-btn" id="btnMinRowsMinus">−</button>
+            <input type="number" id="minRowsInput" value="100" min="50" max="500">
+            <button class="entity-count-btn" id="btnMinRowsPlus">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="config-prop-row">
+        <div class="config-prop-info">
           <span class="config-prop-name" style="color:var(--green-dim);">MAX SPEED</span>
           <span class="config-prop-desc">Entities get a random speed from 1 to this value. Faster entities move more tiles per tick.</span>
         </div>
@@ -980,7 +1023,8 @@
     <span><button class="key">SHIFT-SPACE</button> Step 1 tick</span>
     <span><button class="key" id="ctrlEsc">ESC</button> Options</span>
     <span><button class="key" id="ctrlBackspace">BACKSPACE</button> New Simulation</span>
-    <span>SLOWER <button class="key" id="ctrlSlower">-</button> <span id="speedDisplay" style="font-family:'Share Tech Mono',monospace;color:var(--green);min-width:1.6em;display:inline-block;text-align:center;">20</span> <button class="key" id="ctrlFaster">+</button> FASTER</span>
+    <span>SLOWER <button class="key" id="ctrlSlower">NUM-</button> <span id="speedDisplay" style="font-family:'Share Tech Mono',monospace;color:var(--green);min-width:1.6em;display:inline-block;text-align:center;">20</span> <button class="key" id="ctrlFaster">NUM+</button> FASTER</span>
+    <span>ZOOM <button class="key" id="ctrlZoomOut">SHIFT-NUM-</button> <span id="zoomDisplay" style="font-family:'Share Tech Mono',monospace;color:var(--green);min-width:2.8em;display:inline-block;text-align:center;">100%</span> <button class="key" id="ctrlZoomIn">SHIFT-NUM+</button></span>
   </div>
   <div style="margin-left:auto;display:flex;gap:10px;align-items:center;">
     <div class="version-label" style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:#ffdd00;opacity:0.75;letter-spacing:0.15em;text-shadow:0 0 6px rgba(255,221,0,0.3);"></div>
@@ -1061,12 +1105,12 @@
 </div>
 
 <script>
-  const currentVersion = "v6.00";
+const currentVersion = "v6.01";
   const versionElements = document.querySelectorAll('.version-label');
   versionElements.forEach(el => {
     el.textContent = currentVersion;
   });
-const COLS = 100, ROWS = 100, TRAIL_LENGTH = 14;
+let COLS = 100, ROWS = 100, MIN_COLS = 100, MIN_ROWS = 100; const TRAIL_LENGTH = 14;
 const CARDINAL_DIRS = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}];
 const ALL_8_DIRS = [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0},{dx:-1,dy:-1},{dx:1,dy:-1},{dx:-1,dy:1},{dx:1,dy:1}];
 
@@ -1182,14 +1226,17 @@ const entitiesSection = document.getElementById('entitiesSection');
 
 let entities = makeEntities({destroy:1,bounce:10,stop:2,devour:2,change:2});
 let running=false, tick=0, totalCollisions=0, intervalId=null, speed=120, CELL, FONT_SIZE;
+const ZOOM_STEPS=[0.25,0.5,0.75,1.0,1.5,2.0,3.0,4.0];
+let zoomIdx=3, baseCELL=null, panX=0, panY=0, gameAreaW=0, gameAreaH=0;
 let logEntries=[];
 
 const TOP_H=44, BOT_H=36, PAD_COL=20;
-let leftColW=null, rightTopH=null;
+let leftColW=null, rightTopH=null, playHeightPx=null;
 
 function calcCellSize(canvasPixelW) {
-  const availH=window.innerHeight-TOP_H-BOT_H-PAD_COL;
-  return Math.max(4,Math.min(Math.floor(availH/ROWS),Math.floor(canvasPixelW/COLS)));
+  const maxAvailH=window.innerHeight-TOP_H-BOT_H-PAD_COL;
+  const targetH=playHeightPx===null?maxAvailH:Math.min(playHeightPx,maxAvailH);
+  return Math.max(4,Math.min(Math.floor(targetH/ROWS),Math.floor(canvasPixelW/COLS)));
 }
 
 function applyRightTopHeight(){
@@ -1201,15 +1248,33 @@ function applyRightTopHeight(){
   document.getElementById('rightTopArea').style.width=rightTopH+'px';
 }
 
+function clampPan(){panX=Math.max(0,Math.min(panX,Math.max(0,canvas.width-gameAreaW)));panY=Math.max(0,Math.min(panY,Math.max(0,canvas.height-gameAreaH)));}
+function updateCanvasPos(){canvas.style.left=-panX+'px';canvas.style.top=-panY+'px';}
+function updateZoomDisplay(){const el=document.getElementById('zoomDisplay');if(el)el.textContent=Math.round(ZOOM_STEPS[zoomIdx]*100)+'%';}
+function applyZoom(newIdx){
+  newIdx=Math.max(0,Math.min(ZOOM_STEPS.length-1,newIdx));
+  if(newIdx===zoomIdx||!baseCELL)return;
+  const prevCELL=CELL||1;
+  const cx=(panX+gameAreaW/2)/prevCELL, cy=(panY+gameAreaH/2)/prevCELL;
+  zoomIdx=newIdx;
+  CELL=Math.max(1,Math.round(baseCELL*ZOOM_STEPS[zoomIdx]));
+  FONT_SIZE=Math.max(6,Math.floor(CELL*0.85));
+  canvas.width=COLS*CELL;canvas.height=ROWS*CELL;
+  panX=cx*CELL-gameAreaW/2;panY=cy*CELL-gameAreaH/2;
+  clampPan();updateCanvasPos();updateZoomDisplay();draw();
+}
 function resizeCanvas() {
   if(leftColW===null) leftColW=Math.floor(window.innerWidth*0.62);
   const minLeft=COLS*4+PAD_COL, maxLeft=window.innerWidth-120;
   leftColW=Math.max(minLeft,Math.min(maxLeft,leftColW));
-  CELL=calcCellSize(leftColW-PAD_COL);
+  if(!baseCELL) baseCELL=calcCellSize(leftColW-PAD_COL);
+  CELL=Math.max(1,Math.round(baseCELL*ZOOM_STEPS[zoomIdx]));
   FONT_SIZE=Math.max(6,Math.floor(CELL*0.85));
   canvas.width=COLS*CELL; canvas.height=ROWS*CELL;
-  gameArea.style.width=canvas.width+'px'; gameArea.style.height=canvas.height+'px';
+  gameAreaW=baseCELL*COLS; gameAreaH=baseCELL*ROWS;
+  gameArea.style.width=gameAreaW+'px'; gameArea.style.height=gameAreaH+'px';
   document.querySelector('.left-col').style.width=leftColW+'px';
+  clampPan();updateCanvasPos();updateZoomDisplay();
   applyRightTopHeight();
   draw();
 }
@@ -1591,8 +1656,29 @@ function startNewGame(){
   maxSpeed=Math.max(1,Math.min(10,parseInt(document.getElementById('maxSpeedInput').value)||3));
   speed=levelToMs(Math.max(1,Math.min(25,parseInt(document.getElementById('initSpeedInput').value)||20)));
   document.getElementById('optionsSpeedInput').value=String(speedToLevel(speed));
+  const minCols=Math.max(50,Math.min(500,parseInt(document.getElementById('minColsInput').value)||100));
+  const minRows=Math.max(50,Math.min(500,parseInt(document.getElementById('minRowsInput').value)||100));
+  MIN_COLS=minCols; MIN_ROWS=minRows;
+  // Capacity validation: rough worst-case pack (maxW*maxH per entity)
+  const tc=readTypeCounts();
+  const totalEntities=tc.destroy+tc.bounce+tc.stop+tc.devour+tc.change;
+  const worstCellsPerEntity=maxEntityW*maxEntityH;
+  const worstTotalCells=totalEntities*worstCellsPerEntity;
+  const playCells=minCols*minRows;
+  if(worstTotalCells>playCells){
+    const msg=[
+      'Selected entities cannot fit into the minimum play area without overlapping at deployment.',
+      `Entities: ${totalEntities}, max entity size: ${maxEntityW}×${maxEntityH} (worst-case ${worstCellsPerEntity} tiles each).`,
+      `Worst-case tiles needed: ${worstTotalCells}, available tiles: ${playCells}.`,
+      'Increase the minimum play area size or reduce entity counts.'
+    ];
+    showImportError(msg);
+    return;
+  }
+  COLS=MIN_COLS; ROWS=MIN_ROWS; baseCELL=null;
+  resizeCanvas();
   entities=makeEntities(readTypeCounts());flashes.length=0;tick=0;totalCollisions=0;restoreLog([]);
-  running=true;overlay.classList.add('hidden');entitiesSection.style.display='';
+  running=true;hasActiveGame=true;overlay.classList.add('hidden');entitiesSection.style.display='';
   buildLegend();updateStats();intervalId=setInterval(step,speed);
   document.getElementById('statusDisplay').textContent='RUNNING';
   document.getElementById('ctrlEsc').classList.remove('esc-active');
@@ -1639,7 +1725,7 @@ document.getElementById('gameNameInput').addEventListener('blur',commitGameNameE
 document.getElementById('gameNameInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitGameNameEdit();}if(e.key==='Escape'){e.preventDefault();document.getElementById('gameNameInput').style.display='none';document.getElementById('gameNameDisplay').style.display='';}e.stopPropagation();});
 
 const DEFAULT_CONFIG_KEY='vectorion_default_config';
-const HARDCODED_CONFIG={destroy:0,bounce:10,stop:3,devour:1,change:0,maxW:3,maxH:3,maxSpeed:3,initSpeed:20,diagonalMovement:true,speedTrail:true};
+const HARDCODED_CONFIG={destroy:0,bounce:10,stop:3,devour:1,change:0,maxW:3,maxH:3,maxSpeed:3,initSpeed:20,diagonalMovement:true,speedTrail:true,minCols:100,minRows:100};
 
 function showConfigScreen(){
   document.getElementById('mainMenu').style.display='none';
@@ -1659,6 +1745,8 @@ function showConfigScreen(){
   document.getElementById('initSpeedInput').value=cfg.initSpeed;
   document.getElementById('diagonalToggle').checked=cfg.diagonalMovement;
   document.getElementById('speedTrailToggle').checked=cfg.speedTrail;
+  document.getElementById('minColsInput').value=cfg.minCols||100;
+  document.getElementById('minRowsInput').value=cfg.minRows||100;
 }
 
 function restart(){clearInterval(intervalId);intervalId=null;running=false;tick=0;totalCollisions=0;flashes.length=0;closeEntityEditor(false);updateStats();draw();showMainMenu();}
@@ -1727,13 +1815,23 @@ window.addEventListener('keydown',e=>{
   const numberInputs=['destroyCountInput','bounceCountInput','stopCountInput','maxWInput','maxHInput','devourCountInput','changeCountInput'];
   if(activeEl&&numberInputs.includes(activeEl.id))return;
   const configVisible=document.getElementById('configScreen').style.display!=='none'&&!overlay.classList.contains('hidden');
-  if(configVisible){if(e.code==='Space'){e.preventDefault();hasActiveGame=true;startNewGame();return;}if(e.code==='Escape'){e.preventDefault();showMainMenu();return;}}
+  if(configVisible){
+    if(e.code==='Space'){
+      e.preventDefault();
+      startNewGame();
+      return;
+    }
+    if(e.code==='Escape'){e.preventDefault();showMainMenu();return;}
+  }
   if((e.code==='Backspace'||e.key==='Backspace')&&overlay.classList.contains('hidden')&&!entityEditor.classList.contains('visible')){e.preventDefault();openNewGameMenu();return;}
-  if((e.key==='O'||e.key==='o')&&overlay.classList.contains('hidden')&&!entityEditor.classList.contains('visible')){e.preventDefault();handleOpenOptions(e);}
   if(e.code==='Space'&&e.shiftKey&&overlay.classList.contains('hidden')&&!running){e.preventDefault();step();}
   else if(e.code==='Space'&&!e.shiftKey){e.preventDefault();toggleRunning();}
   if(e.key==='+'||e.key==='=')setSpeed(speed-20);
   if(e.key==='-')setSpeed(speed+20);
+  if(e.code==='NumpadAdd'&&e.shiftKey){e.preventDefault();applyZoom(zoomIdx+1);}
+  else if(e.code==='NumpadAdd'){e.preventDefault();setSpeed(speed-20);}
+  if(e.code==='NumpadSubtract'&&e.shiftKey){e.preventDefault();applyZoom(zoomIdx-1);}
+  else if(e.code==='NumpadSubtract'){e.preventDefault();setSpeed(speed+20);}
 });
 
 // Menu navigation
@@ -1745,7 +1843,7 @@ document.getElementById('menuContinue').addEventListener('click',()=>{
 document.getElementById('menuLoad').addEventListener('click',()=>{document.getElementById('importFileInput').click();});
 document.getElementById('menuNew').addEventListener('click',showConfigScreen);
 document.getElementById('configBack').addEventListener('click',showMainMenu);
-document.getElementById('configStart').addEventListener('click',()=>{hasActiveGame=true;startNewGame();});
+document.getElementById('configStart').addEventListener('click',()=>{startNewGame();});
 
 function saveGameConfig(){
   const gameName=currentGameName||'VECTORION';
@@ -1763,6 +1861,8 @@ function saveGameConfig(){
     initSpeed:parseInt(document.getElementById('initSpeedInput').value)||20,
     diagonalMovement:document.getElementById('diagonalToggle').checked,
     speedTrail:document.getElementById('speedTrailToggle').checked,
+    minCols:parseInt(document.getElementById('minColsInput').value)||100,
+    minRows:parseInt(document.getElementById('minRowsInput').value)||100,
   };
   const json=JSON.stringify(data,null,2);
   const blob=new Blob([json],{type:'application/json'});
@@ -1787,6 +1887,19 @@ function validateGameConfig(data){
   }
   if(!('gameName' in data))errors.push('Missing required field: "gameName".');
   else if(typeof data.gameName!=='string'||data.gameName.trim()==='')errors.push('Field "gameName" must be a non-empty string.');
+  const minCols=(typeof data.minCols==='number'&&Number.isFinite(data.minCols))?data.minCols:100;
+  const minRows=(typeof data.minRows==='number'&&Number.isFinite(data.minRows))?data.minRows:100;
+  if(minCols<50||minCols>500)errors.push(`Field "minCols" must be between 50 and 500 (got ${minCols}).`);
+  if(minRows<50||minRows>500)errors.push(`Field "minRows" must be between 50 and 500 (got ${minRows}).`);
+  const totalEntities=(data.destroy||0)+(data.bounce||0)+(data.stop||0)+(data.devour||0)+(data.change||0);
+  const worstCellsPerEntity=(data.maxW||1)*(data.maxH||1);
+  const worstTotalCells=totalEntities*worstCellsPerEntity;
+  const playCells=minCols*minRows;
+  if(worstTotalCells>playCells){
+    errors.push('Selected entities cannot fit into the minimum play area without overlapping at deployment.');
+    errors.push(`Entities: ${totalEntities}, max entity size: ${data.maxW||1}×${data.maxH||1} (worst-case ${worstCellsPerEntity} tiles each).`);
+    errors.push(`Worst-case tiles needed: ${worstTotalCells}, available tiles: ${playCells}.`);
+  }
   return errors;
 }
 
@@ -1803,6 +1916,8 @@ function applyGameConfig(data){
   document.getElementById('initSpeedInput').value=data.initSpeed;
   document.getElementById('diagonalToggle').checked=data.diagonalMovement;
   document.getElementById('speedTrailToggle').checked=data.speedTrail;
+  document.getElementById('minColsInput').value=data.minCols||100;
+  document.getElementById('minRowsInput').value=data.minRows||100;
 }
 
 document.getElementById('configSetDefault').addEventListener('click',()=>{
@@ -1818,6 +1933,8 @@ document.getElementById('configSetDefault').addEventListener('click',()=>{
     initSpeed:parseInt(document.getElementById('initSpeedInput').value)||20,
     diagonalMovement:document.getElementById('diagonalToggle').checked,
     speedTrail:document.getElementById('speedTrailToggle').checked,
+    minCols:parseInt(document.getElementById('minColsInput').value)||100,
+    minRows:parseInt(document.getElementById('minRowsInput').value)||100,
   };
   try{localStorage.setItem(DEFAULT_CONFIG_KEY,JSON.stringify(cfg));}catch(e){}
   const btn=document.getElementById('configSetDefault');
@@ -1889,6 +2006,9 @@ document.getElementById('ctrlEsc').addEventListener('click',()=>{openOptions();d
 document.getElementById('ctrlBackspace').addEventListener('click',openNewGameMenu);
 document.getElementById('ctrlFaster').addEventListener('click',()=>setSpeed(speed-20));
 document.getElementById('ctrlSlower').addEventListener('click',()=>setSpeed(speed+20));
+document.getElementById('ctrlZoomIn').addEventListener('click',()=>applyZoom(zoomIdx+1));
+document.getElementById('ctrlZoomOut').addEventListener('click',()=>applyZoom(zoomIdx-1));
+gameArea.addEventListener('wheel',e=>{e.preventDefault();applyZoom(e.deltaY<0?zoomIdx+1:zoomIdx-1);},{passive:false});
 
 // Entity editor
 function updateEditorSpeed(){
@@ -2042,8 +2162,24 @@ window.addEventListener('keydown',e=>{
   }
 });
 
+// Canvas pan drag
+let isCanvasPanning=false,canvasPanSX=0,canvasPanSY=0,canvasPanMoved=false;
+canvas.addEventListener('mousedown',e=>{
+  if(e.button!==0)return;
+  isCanvasPanning=true;canvasPanMoved=false;
+  canvasPanSX=e.clientX+panX;canvasPanSY=e.clientY+panY;
+});
+window.addEventListener('mousemove',e=>{
+  if(!isCanvasPanning)return;
+  const nx=canvasPanSX-e.clientX,ny=canvasPanSY-e.clientY;
+  if(Math.abs(nx-panX)>4||Math.abs(ny-panY)>4)canvasPanMoved=true;
+  if(canvasPanMoved){panX=nx;panY=ny;clampPan();updateCanvasPos();if(!running)draw();}
+});
+window.addEventListener('mouseup',()=>{isCanvasPanning=false;});
+
 // Canvas click
 canvas.addEventListener('click',e=>{
+  if(canvasPanMoved)return;
   const rect=canvas.getBoundingClientRect();
   const col=Math.floor((e.clientX-rect.left)/CELL),row=Math.floor((e.clientY-rect.top)/CELL);
   const hit=entities.findIndex(ent=>ent.cells.some(c=>ent.x+c.dx===col&&ent.y+c.dy===row));
@@ -2053,7 +2189,7 @@ canvas.addEventListener('click',e=>{
 canvas.addEventListener('mousemove',e=>{
   const rect=canvas.getBoundingClientRect();
   const col=Math.floor((e.clientX-rect.left)/CELL),row=Math.floor((e.clientY-rect.top)/CELL);
-  canvas.style.cursor=entities.some(ent=>ent.cells.some(c=>ent.x+c.dx===col&&ent.y+c.dy===row))?'pointer':'default';
+  canvas.style.cursor=entities.some(ent=>ent.cells.some(c=>ent.x+c.dx===col&&ent.y+c.dy===row))?'pointer':(ZOOM_STEPS[zoomIdx]>1?'grab':'default');
 });
 
 // Resize handle (horizontal — left/right column split)
@@ -2069,6 +2205,102 @@ const resizeHandleV=document.getElementById('resizeHandleV');
 resizeHandleV.addEventListener('mousedown',e=>{isVDragging=true;resizeHandleV.classList.add('dragging');document.body.style.cursor='col-resize';document.body.style.userSelect='none';e.preventDefault();});
 window.addEventListener('mousemove',e=>{if(!isVDragging)return;const sidebar=document.getElementById('editorSidebar').getBoundingClientRect();rightTopH=Math.round(e.clientX-sidebar.left);applyRightTopHeight();});
 window.addEventListener('mouseup',()=>{if(!isVDragging)return;isVDragging=false;resizeHandleV.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect='';});
+
+// Game area resize handles (bottom & right)
+let isGameHDragging=false, isGameWDragging=false;
+const gameResizeBottom=document.getElementById('gameResizeBottom');
+const gameResizeRight=document.getElementById('gameResizeRight');
+let gridResizeStartRows=ROWS, gridResizeStartCols=COLS, gridResizeStartY=0, gridResizeStartX=0, wasRunningBeforeGridResize=false;
+gameResizeBottom.addEventListener('mousedown',e=>{
+  isGameHDragging=true;
+  gridResizeStartRows=ROWS;
+  gridResizeStartY=e.clientY;
+  wasRunningBeforeGridResize=running;
+  if(running){running=false;clearInterval(intervalId);intervalId=null;document.getElementById('statusDisplay').textContent='PAUSED';}
+  document.body.style.cursor='ns-resize';document.body.style.userSelect='none';e.preventDefault();
+});
+gameResizeRight.addEventListener('mousedown',e=>{
+  isGameWDragging=true;
+  gridResizeStartCols=COLS;
+  gridResizeStartX=e.clientX;
+  wasRunningBeforeGridResize=running;
+  if(running){running=false;clearInterval(intervalId);intervalId=null;document.getElementById('statusDisplay').textContent='PAUSED';}
+  document.body.style.cursor='ew-resize';document.body.style.userSelect='none';e.preventDefault();
+});
+function clampGridSize(cols,rows){
+  const maxH=Math.floor((window.innerHeight-TOP_H-BOT_H-PAD_COL)/CELL);
+  const maxW=Math.floor((window.innerWidth-120-PAD_COL)/CELL);
+  const nc=Math.max(MIN_COLS,Math.min(maxW,cols));
+  const nr=Math.max(MIN_ROWS,Math.min(maxH,rows));
+  return {cols:nc,rows:nr};
+}
+function adjustEntitiesForShrink(oldCols,oldRows,newCols,newRows){
+  if(newCols<oldCols){
+    const limitX=newCols;
+    entities.forEach(e=>{
+      const maxDx=Math.max(...e.cells.map(c=>c.dx));
+      const right=e.x+maxDx+1;
+      if(right>limitX){
+        e.x=Math.max(0,limitX-maxDx-1);
+      }
+    });
+  }
+  if(newRows<oldRows){
+    const limitY=newRows;
+    entities.forEach(e=>{
+      const maxDy=Math.max(...e.cells.map(c=>c.dy));
+      const bottom=e.y+maxDy+1;
+      if(bottom>limitY){
+        e.y=Math.max(0,limitY-maxDy-1);
+      }
+    });
+  }
+}
+function applyGridResize(newCols,newRows){
+  const oldCols=COLS, oldRows=ROWS;
+  const clamped=clampGridSize(newCols,newRows);
+  if(clamped.cols===COLS&&clamped.rows===ROWS)return;
+  adjustEntitiesForShrink(oldCols,oldRows,clamped.cols,clamped.rows);
+  COLS=clamped.cols; ROWS=clamped.rows;
+  baseCELL=calcCellSize(leftColW-PAD_COL);
+  CELL=Math.max(1,Math.round(baseCELL*ZOOM_STEPS[zoomIdx]));
+  canvas.width=COLS*CELL; canvas.height=ROWS*CELL;
+  gameAreaW=baseCELL*COLS; gameAreaH=baseCELL*ROWS;
+  gameArea.style.width=gameAreaW+'px'; gameArea.style.height=gameAreaH+'px';
+  leftColW=gameAreaW+PAD_COL;
+  document.querySelector('.left-col').style.width=leftColW+'px';
+  clampPan();updateCanvasPos();updateZoomDisplay();
+  applyRightTopHeight();
+  draw();
+}
+
+window.addEventListener('mousemove',e=>{
+  if(isGameHDragging){
+    if(!CELL)return;
+    const delta=e.clientY-gridResizeStartY;
+    const dRows=Math.round(delta/CELL);
+    const targetRows=gridResizeStartRows+dRows;
+    applyGridResize(COLS,targetRows);
+  }
+  if(isGameWDragging){
+    if(!CELL)return;
+    const delta=e.clientX-gridResizeStartX;
+    const dCols=Math.round(delta/CELL);
+    const targetCols=gridResizeStartCols+dCols;
+    applyGridResize(targetCols,ROWS);
+  }
+});
+window.addEventListener('mouseup',()=>{
+  if(!isGameHDragging&&!isGameWDragging)return;
+  isGameHDragging=false;isGameWDragging=false;
+  document.body.style.cursor='';document.body.style.userSelect='';
+  if(wasRunningBeforeGridResize){
+    running=true;
+    intervalId=setInterval(step,speed);
+    document.getElementById('statusDisplay').textContent='RUNNING';
+  }
+  wasRunningBeforeGridResize=false;
+});
 
 // Export / Import
 function exportEntities(){
@@ -2213,7 +2445,7 @@ document.getElementById('vrHelpClose').addEventListener('click',closeVRHelp);
 vrHelpBackdrop.addEventListener('click',e=>{if(e.target===vrHelpBackdrop)closeVRHelp();});
 window.addEventListener('keydown',e=>{if(vrHelpBackdrop.classList.contains('visible')&&e.code==='Escape'){e.preventDefault();e.stopImmediatePropagation();closeVRHelp();}},true);
 
-window.addEventListener('resize',()=>{leftColW=null;rightTopH=null;resizeCanvas();});
+window.addEventListener('resize',()=>{leftColW=null;rightTopH=null;baseCELL=null;resizeCanvas();});
 
 function eSpan(e){return `<span style="color:${e.def.main};text-shadow:0 0 5px ${e.def.main}60">${e.def.label}</span>`;}
 const LOG_FONT_SIZES=['0.90rem','0.80rem','0.72rem','0.65rem','0.61rem'];
