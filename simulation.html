@@ -1025,6 +1025,7 @@ const entitiesSection = document.getElementById('entitiesSection');
 
 let entities = makeEntities({destroy:1,bounce:10,stop:2,devour:2,change:2});
 let running=false, tick=0, totalCollisions=0, intervalId=null, speed=120, CELL, FONT_SIZE;
+let logEntries=[];
 
 const TOP_H=44, BOT_H=36, PAD_COL=20;
 let leftColW=null, rightTopH=null;
@@ -1272,7 +1273,7 @@ function autosaveGame() {
     const pad=n=>String(n).padStart(2,'0');
     const now=new Date();
     const savedAt=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1}))};
+    const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,log:logEntries,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1}))};
     localStorage.setItem('vectorion_autosave',JSON.stringify(data));
     const toast=document.getElementById('autosaveToast');
     if(toast){toast.style.opacity='1';clearTimeout(toast._hideTimer);toast._hideTimer=setTimeout(()=>{toast.style.opacity='0';},5000);}
@@ -1290,7 +1291,7 @@ function startNewGame(){
   maxSpeed=Math.max(1,Math.min(10,parseInt(document.getElementById('maxSpeedInput').value)||3));
   speed=levelToMs(Math.max(1,Math.min(25,parseInt(document.getElementById('initSpeedInput').value)||20)));
   document.getElementById('optionsSpeedInput').value=String(speedToLevel(speed));
-  entities=makeEntities(readTypeCounts());flashes.length=0;tick=0;totalCollisions=0;
+  entities=makeEntities(readTypeCounts());flashes.length=0;tick=0;totalCollisions=0;restoreLog([]);
   running=true;overlay.classList.add('hidden');entitiesSection.style.display='';
   buildLegend();updateStats();intervalId=setInterval(step,speed);
   document.getElementById('statusDisplay').textContent='RUNNING';
@@ -1592,7 +1593,7 @@ function exportEntities(){
   if(running){running=false;clearInterval(intervalId);intervalId=null;document.getElementById('statusDisplay').textContent='PAUSED';}
   const pad=n=>String(n).padStart(2,'0');const now=new Date();
   const savedAt=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1}))};
+  const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,log:logEntries,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1}))};
   const json=JSON.stringify(data,null,2);const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);
   const safeName=(currentGameName||'vectorion').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
   const a=document.createElement('a');a.href=url;a.download=`${safeName}_tick${tick}.json`;a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},100);
@@ -1674,6 +1675,7 @@ function importEntities(text) {
   diagonalMode = data.diagonalMode !== undefined ? data.diagonalMode : true;
   maxSpeed = (typeof data.maxSpeed === 'number' && data.maxSpeed >= 1) ? data.maxSpeed : 3;
   flashes.length = 0;
+  restoreLog(data.log||[]);
   currentGameName = data.gameName || 'VECTORION';
   const headerEl = document.getElementById('headerGameName');
   if (headerEl) headerEl.textContent = currentGameName;
@@ -1723,7 +1725,8 @@ function eSpan(e){return `<span style="color:${e.def.main};text-shadow:0 0 5px $
 const LOG_FONT_SIZES=['0.90rem','0.80rem','0.72rem','0.65rem','0.61rem'];
 const LOG_BASE_FONT='0.58rem';
 function updateLogFontSizes(){const el=document.getElementById('gameLog');if(!el)return;Array.from(el.children).slice(0,LOG_FONT_SIZES.length+1).forEach((c,i)=>{c.style.fontSize=i<LOG_FONT_SIZES.length?LOG_FONT_SIZES[i]:LOG_BASE_FONT;});}
-function addLog(html){const el=document.getElementById('gameLog');if(!el)return;const d=document.createElement('div');d.className='log-entry';d.innerHTML=html;el.prepend(d);while(el.children.length>200)el.removeChild(el.lastChild);updateLogFontSizes();}
+function addLog(html){const el=document.getElementById('gameLog');if(!el)return;const d=document.createElement('div');d.className='log-entry';d.innerHTML=html;el.prepend(d);logEntries.unshift(html);if(el.children.length>200)el.removeChild(el.lastChild);if(logEntries.length>200)logEntries.pop();updateLogFontSizes();}
+function restoreLog(entries){const el=document.getElementById('gameLog');if(!el)return;el.innerHTML='';logEntries=Array.isArray(entries)?entries.slice(0,200):[];logEntries.forEach(html=>{const d=document.createElement('div');d.className='log-entry';d.innerHTML=html;el.appendChild(d);});updateLogFontSizes();}
 
 resizeCanvas();buildLegend();updateStats();showMainMenu();draw();
 </script>
