@@ -653,6 +653,19 @@
             </div>
           </div>
 
+          <div style="font-size:0.58rem;color:var(--green-dim);letter-spacing:0.12em;margin-bottom:6px;">VISUAL REACTION</div>
+          <div class="prop-selector-wrap">
+            <button class="prop-current-btn" id="vrCurrentBtn">
+              <span id="vrCurrentIcon">○</span>
+              <span id="vrCurrentLabel">IGNORE</span>
+              <span class="prop-dropdown-arrow">▾</span>
+            </button>
+            <div class="prop-dropdown" id="vrDropdown" style="display:none;">
+              <button class="vr-option" data-vr="ignore">○ IGNORE</button>
+              <button class="vr-option" data-vr="mark">◎ MARK</button>
+            </div>
+          </div>
+
           <div class="editor-speed-row">
             <span class="editor-speed-label">SPEED</span>
             <div class="editor-speed-control">
@@ -824,7 +837,13 @@
         <div class="toggle-track"><div class="toggle-thumb"></div></div>
       </label>
     </div>
-    <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;">
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:14px;">
+      <button class="editor-btn" id="configSaveConfig">⬇ SAVE CONFIG</button>
+      <button class="editor-btn" id="configLoadConfig">⬆ LOAD CONFIG</button>
+      <button class="editor-btn" id="configSetDefault">★ SET DEFAULT</button>
+      <input type="file" id="configFileInput" accept=".json" style="display:none;">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:10px;">
       <button class="editor-btn" id="configBack">← BACK</button>
       <button class="editor-btn confirm" id="configStart">▶ START — PRESS SPACE</button>
     </div>
@@ -1036,7 +1055,7 @@ function makeEntities(typeCounts) {
     const cx=Math.round(50+32*Math.cos(angle)), cy=Math.round(50+32*Math.sin(angle));
     const x=Math.max(0,Math.min(COLS-w,cx-Math.floor(w/2))), y=Math.max(0,Math.min(ROWS-h,cy-Math.floor(h/2)));
     const centX=cells.reduce((s,c)=>s+c.dx,0)/cells.length, centY=cells.reduce((s,c)=>s+c.dy,0)/cells.length;
-    return { x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)), seenEntity:null };
+    return { x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)), seenEntity:null, visualReaction:'ignore' };
   });
 }
 
@@ -1374,7 +1393,7 @@ function autosaveGame() {
     const pad=n=>String(n).padStart(2,'0');
     const now=new Date();
     const savedAt=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,log:logEntries,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1}))};
+    const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,log:logEntries,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1,visualReaction:e.visualReaction||'ignore'}))};
     localStorage.setItem('vectorion_autosave',JSON.stringify(data));
     const toast=document.getElementById('autosaveToast');
     if(toast){toast.style.opacity='1';clearTimeout(toast._hideTimer);toast._hideTimer=setTimeout(()=>{toast.style.opacity='0';},5000);}
@@ -1439,22 +1458,27 @@ document.getElementById('gameNameEditBtn').addEventListener('click',startGameNam
 document.getElementById('gameNameInput').addEventListener('blur',commitGameNameEdit);
 document.getElementById('gameNameInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitGameNameEdit();}if(e.key==='Escape'){e.preventDefault();document.getElementById('gameNameInput').style.display='none';document.getElementById('gameNameDisplay').style.display='';}e.stopPropagation();});
 
+const DEFAULT_CONFIG_KEY='vectorion_default_config';
+const HARDCODED_CONFIG={destroy:0,bounce:10,stop:3,devour:1,change:0,maxW:3,maxH:3,maxSpeed:3,initSpeed:20,diagonalMovement:true,speedTrail:true};
+
 function showConfigScreen(){
   document.getElementById('mainMenu').style.display='none';
   document.getElementById('gameOptionsScreen').style.display='none';
   document.getElementById('configScreen').style.display='';
   setGameNameDisplay(randomGameName());
-  document.getElementById('destroyCountInput').value='0';
-  document.getElementById('bounceCountInput').value='10';
-  document.getElementById('stopCountInput').value='3';
-  document.getElementById('devourCountInput').value='1';
-  document.getElementById('changeCountInput').value='0';
-  document.getElementById('maxWInput').value='3';
-  document.getElementById('maxHInput').value='3';
-  document.getElementById('maxSpeedInput').value='3';
-  document.getElementById('initSpeedInput').value='20';
-  document.getElementById('diagonalToggle').checked=true;
-  document.getElementById('speedTrailToggle').checked=true;
+  let cfg=HARDCODED_CONFIG;
+  try{const raw=localStorage.getItem(DEFAULT_CONFIG_KEY);if(raw){const parsed=JSON.parse(raw);const errors=validateGameConfig({...parsed,gameName:'PLACEHOLDER'});if(errors.length===0)cfg=parsed;}}catch(e){}
+  document.getElementById('destroyCountInput').value=cfg.destroy;
+  document.getElementById('bounceCountInput').value=cfg.bounce;
+  document.getElementById('stopCountInput').value=cfg.stop;
+  document.getElementById('devourCountInput').value=cfg.devour;
+  document.getElementById('changeCountInput').value=cfg.change;
+  document.getElementById('maxWInput').value=cfg.maxW;
+  document.getElementById('maxHInput').value=cfg.maxH;
+  document.getElementById('maxSpeedInput').value=cfg.maxSpeed;
+  document.getElementById('initSpeedInput').value=cfg.initSpeed;
+  document.getElementById('diagonalToggle').checked=cfg.diagonalMovement;
+  document.getElementById('speedTrailToggle').checked=cfg.speedTrail;
 }
 
 function restart(){clearInterval(intervalId);intervalId=null;running=false;tick=0;totalCollisions=0;flashes.length=0;closeEntityEditor(false);updateStats();draw();showMainMenu();}
@@ -1539,6 +1563,98 @@ document.getElementById('menuNew').addEventListener('click',showConfigScreen);
 document.getElementById('configBack').addEventListener('click',showMainMenu);
 document.getElementById('configStart').addEventListener('click',()=>{hasActiveGame=true;startNewGame();});
 
+function saveGameConfig(){
+  const gameName=currentGameName||'VECTORION';
+  const data={
+    configVersion:1,
+    gameName,
+    destroy:parseInt(document.getElementById('destroyCountInput').value)||0,
+    bounce:parseInt(document.getElementById('bounceCountInput').value)||0,
+    stop:parseInt(document.getElementById('stopCountInput').value)||0,
+    devour:parseInt(document.getElementById('devourCountInput').value)||0,
+    change:parseInt(document.getElementById('changeCountInput').value)||0,
+    maxW:parseInt(document.getElementById('maxWInput').value)||3,
+    maxH:parseInt(document.getElementById('maxHInput').value)||3,
+    maxSpeed:parseInt(document.getElementById('maxSpeedInput').value)||3,
+    initSpeed:parseInt(document.getElementById('initSpeedInput').value)||20,
+    diagonalMovement:document.getElementById('diagonalToggle').checked,
+    speedTrail:document.getElementById('speedTrailToggle').checked,
+  };
+  const json=JSON.stringify(data,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const safeName=gameName.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  const a=document.createElement('a');a.href=url;a.download=`${safeName}-configuration.json`;a.style.display='none';
+  document.body.appendChild(a);a.click();setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},100);
+}
+
+function validateGameConfig(data){
+  const errors=[];
+  if(typeof data!=='object'||data===null){errors.push('File is not a valid configuration object.');return errors;}
+  const requiredNum={destroy:[0,10],bounce:[0,20],stop:[0,10],devour:[0,10],change:[0,10],maxW:[1,8],maxH:[1,8],maxSpeed:[1,10],initSpeed:[1,25]};
+  for(const [field,[min,max]] of Object.entries(requiredNum)){
+    if(!(field in data))errors.push(`Missing required field: "${field}".`);
+    else if(typeof data[field]!=='number'||!Number.isFinite(data[field]))errors.push(`Field "${field}" must be a number.`);
+    else if(data[field]<min||data[field]>max)errors.push(`Field "${field}" must be between ${min} and ${max} (got ${data[field]}).`);
+  }
+  for(const field of['diagonalMovement','speedTrail']){
+    if(!(field in data))errors.push(`Missing required field: "${field}".`);
+    else if(typeof data[field]!=='boolean')errors.push(`Field "${field}" must be a boolean.`);
+  }
+  if(!('gameName' in data))errors.push('Missing required field: "gameName".');
+  else if(typeof data.gameName!=='string'||data.gameName.trim()==='')errors.push('Field "gameName" must be a non-empty string.');
+  return errors;
+}
+
+function applyGameConfig(data){
+  setGameNameDisplay(data.gameName.trim().toUpperCase());
+  document.getElementById('destroyCountInput').value=data.destroy;
+  document.getElementById('bounceCountInput').value=data.bounce;
+  document.getElementById('stopCountInput').value=data.stop;
+  document.getElementById('devourCountInput').value=data.devour;
+  document.getElementById('changeCountInput').value=data.change;
+  document.getElementById('maxWInput').value=data.maxW;
+  document.getElementById('maxHInput').value=data.maxH;
+  document.getElementById('maxSpeedInput').value=data.maxSpeed;
+  document.getElementById('initSpeedInput').value=data.initSpeed;
+  document.getElementById('diagonalToggle').checked=data.diagonalMovement;
+  document.getElementById('speedTrailToggle').checked=data.speedTrail;
+}
+
+document.getElementById('configSetDefault').addEventListener('click',()=>{
+  const cfg={
+    destroy:parseInt(document.getElementById('destroyCountInput').value)||0,
+    bounce:parseInt(document.getElementById('bounceCountInput').value)||0,
+    stop:parseInt(document.getElementById('stopCountInput').value)||0,
+    devour:parseInt(document.getElementById('devourCountInput').value)||0,
+    change:parseInt(document.getElementById('changeCountInput').value)||0,
+    maxW:parseInt(document.getElementById('maxWInput').value)||3,
+    maxH:parseInt(document.getElementById('maxHInput').value)||3,
+    maxSpeed:parseInt(document.getElementById('maxSpeedInput').value)||3,
+    initSpeed:parseInt(document.getElementById('initSpeedInput').value)||20,
+    diagonalMovement:document.getElementById('diagonalToggle').checked,
+    speedTrail:document.getElementById('speedTrailToggle').checked,
+  };
+  try{localStorage.setItem(DEFAULT_CONFIG_KEY,JSON.stringify(cfg));}catch(e){}
+  const btn=document.getElementById('configSetDefault');
+  const orig=btn.textContent;btn.textContent='✔ SAVED';btn.disabled=true;
+  setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},1500);
+});
+document.getElementById('configSaveConfig').addEventListener('click',saveGameConfig);
+document.getElementById('configLoadConfig').addEventListener('click',()=>document.getElementById('configFileInput').click());
+document.getElementById('configFileInput').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    let data;
+    try{data=JSON.parse(ev.target.result);}catch(err){showImportError(['File is not valid JSON: '+err.message]);return;}
+    const errors=validateGameConfig(data);
+    if(errors.length>0){showImportError(errors);return;}
+    applyGameConfig(data);
+  };
+  r.readAsText(f);e.target.value='';
+});
+
 function wireSpinner(bm,inp,bp,min,max,def,step=1){const i=document.getElementById(inp);document.getElementById(bm).addEventListener('click',()=>{i.value=Math.max(min,(parseInt(i.value)||def)-step);});document.getElementById(bp).addEventListener('click',()=>{i.value=Math.min(max,(parseInt(i.value)||def)+step);});i.addEventListener('change',()=>{i.value=Math.max(min,Math.min(max,parseInt(i.value)||def));});}
 wireSpinner('btnDestroyMinus','destroyCountInput','btnDestroyPlus',0,10,0);
 wireSpinner('btnBounceMinus','bounceCountInput','btnBouncePlus',0,20,10);
@@ -1604,6 +1720,7 @@ function openEntityEditor(entityIndex){
   editorNameInput.style.display='none';editorTitle.style.display='';editorTitle.textContent=e.def.label;editorTitle.style.color=e.def.main;editorTitle.style.textShadow=`0 0 10px ${e.def.main}`;
   const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='';
   updatePropDisplay(selectedProp,e.changeTarget);
+  selectedVR=e.visualReaction||'ignore';updateVRDisplay(selectedVR);
   updateEditorSpeed();
   entityEditor.classList.add('visible');buildLegend();draw();
 }
@@ -1629,8 +1746,9 @@ function closeEntityEditor(revert){
   if(!revert&&editingEntityIndex!==null&&selectedProp){
     const e=entities[editingEntityIndex];
     if(e&&e.movementProperty!==selectedProp){const saved=e.def.label;e.movementProperty=selectedProp;e.def=makeEntityDef(editingEntityIndex,entities.length,selectedProp);e.def.label=saved;if(selectedProp!=='stop')e.stopped=false;if(selectedProp==='change'&&!e.changeTarget)e.changeTarget=randomChangeTarget(null);e.trail=[];}
+    if(e)e.visualReaction=selectedVR;
   }
-  propDropdown.style.display='none';
+  propDropdown.style.display='none';vrDropdown.style.display='none';
   entityEditor.classList.remove('visible');editingEntityIndex=null;selectedProp=null;originalProp=null;wasRunningBeforeEdit=false;buildLegend();draw();
 }
 
@@ -1653,6 +1771,20 @@ editorTitle.addEventListener('click',startNameEdit);
 document.getElementById('editorRenameHint').addEventListener('click',startNameEdit);
 editorNameInput.addEventListener('blur',commitNameEdit);
 editorNameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitNameEdit();}if(e.key==='Escape'){e.preventDefault();e.stopPropagation();editorNameInput.style.display='none';editorTitle.style.display='';const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='';}});
+
+// Visual Reaction dropdown
+const VR_ICONS={ignore:'○',mark:'◎'};
+const VR_LABELS={ignore:'IGNORE',mark:'MARK'};
+let selectedVR='ignore';
+function updateVRDisplay(vr){
+  document.getElementById('vrCurrentIcon').textContent=VR_ICONS[vr]||'○';
+  document.getElementById('vrCurrentLabel').textContent=VR_LABELS[vr]||vr.toUpperCase();
+}
+const vrCurrentBtn=document.getElementById('vrCurrentBtn');
+const vrDropdown=document.getElementById('vrDropdown');
+vrCurrentBtn.addEventListener('click',e=>{e.stopPropagation();const isOpen=vrDropdown.style.display!=='none';if(isOpen){vrDropdown.style.display='none';}else{const r=vrCurrentBtn.getBoundingClientRect();vrDropdown.style.top=r.bottom+'px';vrDropdown.style.left=r.left+'px';vrDropdown.style.width=r.width+'px';vrDropdown.style.display='block';}});
+document.addEventListener('click',()=>{vrDropdown.style.display='none';});
+document.querySelectorAll('.vr-option').forEach(btn=>{btn.addEventListener('click',()=>{selectedVR=btn.dataset.vr;updateVRDisplay(selectedVR);vrDropdown.style.display='none';});});
 
 // Collision Reaction dropdown
 const PROP_ICONS_MAP={destroy:'☠',bounce:'◈',stop:'◼',devour:'◉',change:'⟳'};
@@ -1721,7 +1853,7 @@ function exportEntities(){
   if(running){running=false;clearInterval(intervalId);intervalId=null;document.getElementById('statusDisplay').textContent='PAUSED';}
   const pad=n=>String(n).padStart(2,'0');const now=new Date();
   const savedAt=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,log:logEntries,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1}))};
+  const data={version:1,gameName:currentGameName||'VECTORION',savedAt,tick,diagonalMode,maxSpeed,log:logEntries,entities:entities.map(e=>({name:e.def.label,movementProperty:e.movementProperty,changeTarget:e.changeTarget||null,x:e.x,y:e.y,dir:e.dir,stopped:e.stopped,cells:e.cells,speed:e.speed||1,visualReaction:e.visualReaction||'ignore'}))};
   const json=JSON.stringify(data,null,2);const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);
   const safeName=(currentGameName||'vectorion').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
   const a=document.createElement('a');a.href=url;a.download=`${safeName}_tick${tick}.json`;a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},100);
@@ -1795,6 +1927,7 @@ function importEntities(text) {
       collisions: 0,
       speed: (typeof src.speed === 'number' && src.speed >= 1) ? src.speed : 1,
       seenEntity: null,
+      visualReaction: src.visualReaction || 'ignore',
     };
   });
 
