@@ -1,7 +1,6 @@
 # Work in Progress
 
 * feat: rename properties to Reactions. Destroy, Bounce, Stop, Devour, Change
-* feat: game log - display interaction events - "Entity 1 Destroyed Entity 2 at Tick 231"
 * feat: game log - add game log to savegame (localStorage and json file save)
 
 ## Minor or undecided changes

@@ -1,5 +1,6 @@
 2026-03-08
 
+* feat: game log - display interaction events - "Entity 1 Destroyed Entity 2 at Tick 231"
 * feat: hover over entity displays white crosshair
 * fix: hover is displayed even when simulation is stopped
 * feat: initial game speed set in New Game menu

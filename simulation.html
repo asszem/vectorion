@@ -137,6 +137,67 @@
     overflow: hidden;
   }
 
+  .right-top-area {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 60px;
+    flex-shrink: 0;
+  }
+
+  .resize-handle-v {
+    height: 5px;
+    flex-shrink: 0;
+    cursor: row-resize;
+    background: transparent;
+    position: relative;
+    z-index: 10;
+    transition: background 0.15s;
+  }
+  .resize-handle-v:hover, .resize-handle-v.dragging { background: rgba(0,255,65,0.18); }
+  .resize-handle-v::after {
+    content: '';
+    position: absolute;
+    left: 10%; top: 50%;
+    transform: translateY(-50%);
+    width: 80%; height: 1px;
+    background: var(--green-dim);
+    opacity: 0.5;
+  }
+  .resize-handle-v:hover::after, .resize-handle-v.dragging::after {
+    opacity: 1; background: var(--green); box-shadow: 0 0 6px var(--green);
+  }
+
+  .right-bottom-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 60px;
+    border-top: 1px solid rgba(0,168,40,0.15);
+  }
+
+  .game-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 12px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--green-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .log-entry {
+    line-height: 1.6;
+    border-bottom: 1px solid rgba(0,168,40,0.06);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   #entityEditor {
     display: flex;
     flex-direction: column;
@@ -554,6 +615,7 @@
   <div class="resize-handle" id="resizeHandle"></div>
 
   <div class="right-col" id="editorSidebar">
+  <div class="right-top-area" id="rightTopArea">
     <div class="editor-section">
       <div id="entityEditor">
         <div class="editor-box">
@@ -592,6 +654,12 @@
       <div class="sidebar-section-title">ENTITIES <span style="opacity:0.5;font-size:0.5rem">— click to edit</span></div>
       <div class="entity-legend" id="entityLegend"></div>
     </div>
+  </div>
+  <div class="resize-handle-v" id="resizeHandleV"></div>
+  <div class="right-bottom-area">
+    <div class="sidebar-section-title" style="padding:6px 12px 3px;margin:0;flex-shrink:0;">GAME LOG</div>
+    <div class="game-log" id="gameLog"></div>
+  </div>
   </div>
 </div>
 
@@ -961,11 +1029,20 @@ let entities = makeEntities({destroy:1,bounce:10,stop:2,devour:2,change:2});
 let running=false, tick=0, totalCollisions=0, intervalId=null, speed=120, CELL, FONT_SIZE;
 
 const TOP_H=44, BOT_H=36, PAD_COL=20;
-let leftColW=null;
+let leftColW=null, rightTopH=null;
 
 function calcCellSize(canvasPixelW) {
   const availH=window.innerHeight-TOP_H-BOT_H-PAD_COL;
   return Math.max(4,Math.min(Math.floor(availH/ROWS),Math.floor(canvasPixelW/COLS)));
+}
+
+function applyRightTopHeight(){
+  const sidebar=document.getElementById('editorSidebar');
+  const totalH=sidebar.offsetHeight;
+  if(rightTopH===null)rightTopH=Math.floor(totalH/3);
+  const minH=60, maxH=totalH-65;
+  rightTopH=Math.max(minH,Math.min(maxH,rightTopH));
+  document.getElementById('rightTopArea').style.height=rightTopH+'px';
 }
 
 function resizeCanvas() {
@@ -977,6 +1054,7 @@ function resizeCanvas() {
   canvas.width=COLS*CELL; canvas.height=ROWS*CELL;
   gameArea.style.width=canvas.width+'px'; gameArea.style.height=canvas.height+'px';
   document.querySelector('.left-col').style.width=leftColW+'px';
+  applyRightTopHeight();
   draw();
 }
 
@@ -1079,11 +1157,11 @@ function step() {
       const ei=entities[i],ej=entities[j],pi=eff(ei),pj=eff(ej);
       if(ei.movementProperty==='change')toMutate.add(i);
       if(ej.movementProperty==='change')toMutate.add(j);
-      if(pi==='destroy'&&pj==='destroy'){toDestroy.add(i);toDestroy.add(j);flashes.push({x:ei.x+ei.centX,y:ei.y+ei.centY,age:0,color:'#ff2222'});flashes.push({x:ej.x+ej.centX,y:ej.y+ej.centY,age:0,color:'#ff2222'});totalCollisions++;}
-      else if(pi==='destroy'&&pj!=='destroy'){toDestroy.add(j);flashes.push({x:ej.x+ej.centX,y:ej.y+ej.centY,age:0,color:'#ff2222'});totalCollisions++;}
-      else if(pj==='destroy'&&pi!=='destroy'){toDestroy.add(i);flashes.push({x:ei.x+ei.centX,y:ei.y+ei.centY,age:0,color:'#ff2222'});totalCollisions++;}
-      else if(pi==='devour'&&pj!=='destroy'){if(!toDevour.has(i))toDevour.set(i,[]);toDevour.get(i).push(j);flashes.push({x:ej.x+ej.centX,y:ej.y+ej.centY,age:0,color:'#ff8800'});totalCollisions++;}
-      else if(pj==='devour'&&pi!=='destroy'){if(!toDevour.has(j))toDevour.set(j,[]);toDevour.get(j).push(i);flashes.push({x:ei.x+ei.centX,y:ei.y+ei.centY,age:0,color:'#ff8800'});totalCollisions++;}
+      if(pi==='destroy'&&pj==='destroy'){toDestroy.add(i);toDestroy.add(j);flashes.push({x:ei.x+ei.centX,y:ei.y+ei.centY,age:0,color:'#ff2222'});flashes.push({x:ej.x+ej.centX,y:ej.y+ej.centY,age:0,color:'#ff2222'});totalCollisions++;addLog(`${eSpan(ei)} annihilated ${eSpan(ej)} at tick ${tick}`);}
+      else if(pi==='destroy'&&pj!=='destroy'){toDestroy.add(j);flashes.push({x:ej.x+ej.centX,y:ej.y+ej.centY,age:0,color:'#ff2222'});totalCollisions++;addLog(`${eSpan(ei)} destroyed ${eSpan(ej)} at tick ${tick}`);}
+      else if(pj==='destroy'&&pi!=='destroy'){toDestroy.add(i);flashes.push({x:ei.x+ei.centX,y:ei.y+ei.centY,age:0,color:'#ff2222'});totalCollisions++;addLog(`${eSpan(ej)} destroyed ${eSpan(ei)} at tick ${tick}`);}
+      else if(pi==='devour'&&pj!=='destroy'){if(!toDevour.has(i))toDevour.set(i,[]);toDevour.get(i).push(j);flashes.push({x:ej.x+ej.centX,y:ej.y+ej.centY,age:0,color:'#ff8800'});totalCollisions++;addLog(`${eSpan(ei)} devoured ${eSpan(ej)} at tick ${tick}`);}
+      else if(pj==='devour'&&pi!=='destroy'){if(!toDevour.has(j))toDevour.set(j,[]);toDevour.get(j).push(i);flashes.push({x:ei.x+ei.centX,y:ei.y+ei.centY,age:0,color:'#ff8800'});totalCollisions++;addLog(`${eSpan(ej)} devoured ${eSpan(ei)} at tick ${tick}`);}
       else if(pi==='stop'||pj==='stop'){[i,j].forEach(idx=>{const e=entities[idx];if(eff(e)==='stop'){if(e.stopped)toResume.add(idx);else toStop.add(idx);}else collided.add(idx);});}
       else{collided.add(i);collided.add(j);}
     }
@@ -1091,8 +1169,8 @@ function step() {
   collided.forEach(i=>{if(toDestroy.has(i))return;const e=entities[i];const avail=getDirSet().filter(d=>d!==e.dir&&!entityHitsWall(e,d));if(avail.length>0)e.dir=avail[Math.floor(Math.random()*avail.length)];finalNext[i]={nx:e.x,ny:e.y};flashes.push({x:e.x+e.centX,y:e.y+e.centY,age:0,color:e.def.main});e.collisions++;totalCollisions++;});
   const devourVictims=new Set();
   toDevour.forEach((victims,di)=>{victims.forEach(vi=>{if(toDestroy.has(vi)||devourVictims.has(vi))return;devourVictims.add(vi);const d=entities[di],v=entities[vi];v.cells.forEach(c=>d.cells.push({dx:c.dx+(v.x-d.x),dy:c.dy+(v.y-d.y)}));d.centX=d.cells.reduce((s,c)=>s+c.dx,0)/d.cells.length;d.centY=d.cells.reduce((s,c)=>s+c.dy,0)/d.cells.length;});});
-  toStop.forEach(i=>{entities[i].stopped=true;finalNext[i]={nx:entities[i].x,ny:entities[i].y};flashes.push({x:entities[i].x+entities[i].centX,y:entities[i].y+entities[i].centY,age:0,color:'#ffdd00'});totalCollisions++;});
-  toResume.forEach(i=>{entities[i].stopped=false;flashes.push({x:entities[i].x+entities[i].centX,y:entities[i].y+entities[i].centY,age:0,color:'#ffffff'});});
+  toStop.forEach(i=>{entities[i].stopped=true;finalNext[i]={nx:entities[i].x,ny:entities[i].y};flashes.push({x:entities[i].x+entities[i].centX,y:entities[i].y+entities[i].centY,age:0,color:'#ffdd00'});totalCollisions++;addLog(`${eSpan(entities[i])} halted at tick ${tick}`);});
+  toResume.forEach(i=>{entities[i].stopped=false;flashes.push({x:entities[i].x+entities[i].centX,y:entities[i].y+entities[i].centY,age:0,color:'#ffffff'});addLog(`${eSpan(entities[i])} resumed at tick ${tick}`);});
   if(toStop.size>0||toResume.size>0)buildLegend();
   let didMutate=false;
   toMutate.forEach(i=>{if(toDestroy.has(i))return;const e=entities[i];const prev=e.changeTarget;e.changeTarget=randomChangeTarget(prev);flashes.push({x:e.x+e.centX,y:e.y+e.centY,age:0,color:'#cc44ff'});didMutate=true;});
@@ -1497,12 +1575,19 @@ canvas.addEventListener('mousemove',e=>{
   canvas.style.cursor=entities.some(ent=>ent.cells.some(c=>ent.x+c.dx===col&&ent.y+c.dy===row))?'pointer':'default';
 });
 
-// Resize handle
+// Resize handle (horizontal — left/right column split)
 let isDragging=false;
 const resizeHandle=document.getElementById('resizeHandle');
 resizeHandle.addEventListener('mousedown',e=>{isDragging=true;resizeHandle.classList.add('dragging');document.body.style.cursor='col-resize';document.body.style.userSelect='none';e.preventDefault();});
 window.addEventListener('mousemove',e=>{if(!isDragging)return;const row=document.querySelector('.middle-row').getBoundingClientRect();leftColW=Math.round(e.clientX-row.left);resizeCanvas();});
 window.addEventListener('mouseup',()=>{if(!isDragging)return;isDragging=false;resizeHandle.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect='';});
+
+// Resize handle V (vertical — entity list / game log split)
+let isVDragging=false;
+const resizeHandleV=document.getElementById('resizeHandleV');
+resizeHandleV.addEventListener('mousedown',e=>{isVDragging=true;resizeHandleV.classList.add('dragging');document.body.style.cursor='row-resize';document.body.style.userSelect='none';e.preventDefault();});
+window.addEventListener('mousemove',e=>{if(!isVDragging)return;const sidebar=document.getElementById('editorSidebar').getBoundingClientRect();rightTopH=Math.round(e.clientY-sidebar.top);applyRightTopHeight();});
+window.addEventListener('mouseup',()=>{if(!isVDragging)return;isVDragging=false;resizeHandleV.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect='';});
 
 // Export / Import
 function exportEntities(){
@@ -1634,7 +1719,10 @@ document.getElementById('helpClose').addEventListener('click',closeHelp);
 helpBackdrop.addEventListener('click',e=>{if(e.target===helpBackdrop)closeHelp();});
 window.addEventListener('keydown',e=>{if(helpBackdrop.classList.contains('visible')&&e.code==='Escape'){e.preventDefault();e.stopImmediatePropagation();closeHelp();}},true);
 
-window.addEventListener('resize',()=>{leftColW=null;resizeCanvas();});
+window.addEventListener('resize',()=>{leftColW=null;rightTopH=null;resizeCanvas();});
+
+function eSpan(e){return `<span style="color:${e.def.main};text-shadow:0 0 5px ${e.def.main}60">${e.def.label}</span>`;}
+function addLog(html){const el=document.getElementById('gameLog');if(!el)return;const d=document.createElement('div');d.className='log-entry';d.innerHTML=html;el.appendChild(d);while(el.children.length>200)el.removeChild(el.firstChild);el.scrollTop=el.scrollHeight;}
 
 resizeCanvas();buildLegend();updateStats();showMainMenu();draw();
 </script>
