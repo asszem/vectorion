@@ -1,6 +1,7 @@
 # 2026-03-10
 
-* fix: collision detection (works well at this point)
+* fix: initial and running collision detection (works well at this point)
+* fix: zoom, play area size, viewport size
 
 # 2026-03-08
 
