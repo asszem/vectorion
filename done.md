@@ -1,6 +1,23 @@
-# 2026-03-08 -
+# 2026-03-10
 
+* fix: collision detection (works well at this point)
+
+# 2026-03-08
+
+* feat: resizable play area, set in initial config
+* play area zoom / entity display size
+* feat: custom color for entities
+* feat: move Help modals next to Collision and Visual reaction 
+* feat: rename Game to Simulation everywhere
+* feat: save/load Simulation configuration on New Simulation window
+* feat: set current Simulation Config as Default (in localStorage)
+* fix: add enable/disable entity trail option to Paused Game Options menu
 * feat: start a new game when backspace key is pressed with default settings
+* fix: collision detection when entity is stopped, nothing should be able to overlap it
+* feat: filterable log messages, log for vision, hoverable log messages
+* fix: display crosshair and line of sight when the simulation runs and user hovers over entity list
+* fix: entity not seeing other entity, even if it is partially in its line of sight
+* fix: seen other entity display font barely visible, make it bigger
 
 # 2026-03-07 - Initial game setup, Collision reactions, save/load functions, LOS
 

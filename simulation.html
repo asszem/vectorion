@@ -252,26 +252,6 @@
     overflow: hidden;
   }
   #gameCanvas { position: absolute; top: 0; left: 0; }
-  .game-resize-handle-bottom,
-  .game-resize-handle-right {
-    position: absolute;
-    background: transparent;
-    z-index: 3;
-  }
-  .game-resize-handle-bottom {
-    left: 0; right: 0; bottom: 0;
-    height: 6px;
-    cursor: ns-resize;
-  }
-  .game-resize-handle-right {
-    top: 0; bottom: 0; right: 0;
-    width: 6px;
-    cursor: ew-resize;
-  }
-  .game-resize-handle-bottom:hover,
-  .game-resize-handle-right:hover {
-    background: rgba(0,255,65,0.15);
-  }
   .game-area::before {
     content: '';
     position: absolute; inset: 0;
@@ -665,8 +645,6 @@
   <div class="left-col">
     <div class="game-area" id="gameArea" tabindex="0">
       <canvas id="gameCanvas"></canvas>
-      <div class="game-resize-handle-bottom" id="gameResizeBottom"></div>
-      <div class="game-resize-handle-right" id="gameResizeRight"></div>
     </div>
   </div>
 
@@ -1248,8 +1226,8 @@ function applyRightTopHeight(){
   document.getElementById('rightTopArea').style.width=rightTopH+'px';
 }
 
-function clampPan(){panX=Math.max(0,Math.min(panX,Math.max(0,canvas.width-gameAreaW)));panY=Math.max(0,Math.min(panY,Math.max(0,canvas.height-gameAreaH)));}
-function updateCanvasPos(){canvas.style.left=-panX+'px';canvas.style.top=-panY+'px';}
+function clampPan(){panX=Math.max(0,Math.min(panX,Math.max(0,COLS*CELL-gameAreaW)));panY=Math.max(0,Math.min(panY,Math.max(0,ROWS*CELL-gameAreaH)));}
+function updateCanvasPos(){}
 function updateZoomDisplay(){const el=document.getElementById('zoomDisplay');if(el)el.textContent=Math.round(ZOOM_STEPS[zoomIdx]*100)+'%';}
 function applyZoom(newIdx){
   newIdx=Math.max(0,Math.min(ZOOM_STEPS.length-1,newIdx));
@@ -1259,19 +1237,18 @@ function applyZoom(newIdx){
   zoomIdx=newIdx;
   CELL=Math.max(1,Math.round(baseCELL*ZOOM_STEPS[zoomIdx]));
   FONT_SIZE=Math.max(6,Math.floor(CELL*0.85));
-  canvas.width=COLS*CELL;canvas.height=ROWS*CELL;
   panX=cx*CELL-gameAreaW/2;panY=cy*CELL-gameAreaH/2;
-  clampPan();updateCanvasPos();updateZoomDisplay();draw();
+  clampPan();updateZoomDisplay();draw();
 }
 function resizeCanvas() {
   if(leftColW===null) leftColW=Math.floor(window.innerWidth*0.62);
   const minLeft=COLS*4+PAD_COL, maxLeft=window.innerWidth-120;
   leftColW=Math.max(minLeft,Math.min(maxLeft,leftColW));
-  if(!baseCELL) baseCELL=calcCellSize(leftColW-PAD_COL);
+  baseCELL=calcCellSize(leftColW-PAD_COL);
   CELL=Math.max(1,Math.round(baseCELL*ZOOM_STEPS[zoomIdx]));
   FONT_SIZE=Math.max(6,Math.floor(CELL*0.85));
-  canvas.width=COLS*CELL; canvas.height=ROWS*CELL;
   gameAreaW=baseCELL*COLS; gameAreaH=baseCELL*ROWS;
+  canvas.width=gameAreaW; canvas.height=gameAreaH;
   gameArea.style.width=gameAreaW+'px'; gameArea.style.height=gameAreaH+'px';
   document.querySelector('.left-col').style.width=leftColW+'px';
   clampPan();updateCanvasPos();updateZoomDisplay();
@@ -1362,43 +1339,7 @@ function step() {
     const best=dirs.reduce((a,d)=>d.dx*tdx+d.dy*tdy>a.dx*tdx+a.dy*tdy?d:a,dirs[0]);
     e.dir=best;
   });
-  // Phase 1: move each entity speed tiles, checking walls at each sub-step
-  // Result: final positions stored in next[]
-  const next = entities.map(e => {
-    if (e.stopped) return { nx: e.x, ny: e.y };
-    let cx = e.x, cy = e.y;
-    for (let s = 0; s < e.speed; s++) {
-      // Check wall before moving one tile
-      if (entityHitsWall(e, e.dir)) {
-        e.dir = bounceDir(e.dir, e);
-      }
-      // If still hits wall after bounce (corner case), stay put this sub-step
-      if (!entityHitsWall(e, e.dir)) {
-        cx += e.dir.dx;
-        cy += e.dir.dy;
-      }
-      // Update e's temp position for wall checks in subsequent sub-steps
-      const prevX = e.x, prevY = e.y;
-      e.x = cx; e.y = cy;
-      if (s < e.speed - 1 && entityHitsWall(e, e.dir)) {
-        e.dir = bounceDir(e.dir, e);
-      }
-    }
-    const finalX = e.x, finalY = e.y;
-    // Restore original position — actual move happens at end of step
-    e.x = entities[entities.indexOf(e)].x; // original x is already overwritten, use finalX
-    return { nx: finalX, ny: finalY };
-  });
-
-  // Restore all positions to original before final commit
-  // (we temporarily moved entities during sub-step wall checks — reset)
-  entities.forEach((e, i) => {
-    // The entity x/y were mutated during sub-stepping; we need to reset to pre-step values.
-    // We stored the originals before the loop — recalculate from next by working backward.
-    // Simpler approach: redo the move cleanly below in a position-independent way
-  });
-
-  // Clean re-implementation: compute final positions without mutating e.x/e.y
+  // Phase 1: compute final positions without mutating e.x/e.y
   // Also record intermediate positions for speed-trail rendering
   const finalNext = entities.map(e => {
     if (e.stopped) { e.speedTrail = []; return { nx: e.x, ny: e.y }; }
@@ -1540,9 +1481,10 @@ function draw() {
   computeVision();
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle='#030f03';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.save();ctx.translate(-panX,-panY);
   ctx.fillStyle='rgba(0,80,20,0.3)';
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)ctx.fillRect(c*CELL+CELL/2-.5,r*CELL+CELL/2-.5,1,1);
-  ctx.strokeStyle='rgba(0,255,65,0.2)';ctx.lineWidth=1;ctx.strokeRect(.5,.5,canvas.width-1,canvas.height-1);
+  ctx.strokeStyle='rgba(0,255,65,0.2)';ctx.lineWidth=1;ctx.strokeRect(.5,.5,COLS*CELL-1,ROWS*CELL-1);
   ctx.textAlign='center';ctx.textBaseline='middle';
   entities.forEach(e=>{
     const {trailR,trailG,trailB}=e.def;
@@ -1600,10 +1542,10 @@ function draw() {
       const {dx,dy}=e.dir;
       function glowLine(draw){ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.shadowColor='white';ctx.shadowBlur=12;ctx.lineWidth=3;draw();ctx.stroke();ctx.strokeStyle='#ffffff';ctx.shadowBlur=0;ctx.lineWidth=1;draw();ctx.stroke();}
       glowLine(()=>{ctx.beginPath();ctx.rect(ex0+.5,ey0+.5,ex1-ex0-1,ey1-ey0-1);});
-      if(!(dx>0&&dy===0))glowLine(()=>{ctx.beginPath();ctx.moveTo(ex1,midY);ctx.lineTo(canvas.width,midY);});
-      if(!(dx<0&&dy===0))glowLine(()=>{ctx.beginPath();ctx.moveTo(ex0,midY);ctx.lineTo(0,midY);});
-      if(!(dx===0&&dy<0))glowLine(()=>{ctx.beginPath();ctx.moveTo(midX,ey0);ctx.lineTo(midX,0);});
-      if(!(dx===0&&dy>0))glowLine(()=>{ctx.beginPath();ctx.moveTo(midX,ey1);ctx.lineTo(midX,canvas.height);});
+      if(!(dx>0&&dy===0))glowLine(()=>{ctx.beginPath();ctx.moveTo(ex1,midY);ctx.lineTo(Math.min(COLS*CELL,panX+canvas.width),midY);});
+      if(!(dx<0&&dy===0))glowLine(()=>{ctx.beginPath();ctx.moveTo(ex0,midY);ctx.lineTo(panX,midY);});
+      if(!(dx===0&&dy<0))glowLine(()=>{ctx.beginPath();ctx.moveTo(midX,ey0);ctx.lineTo(midX,panY);});
+      if(!(dx===0&&dy>0))glowLine(()=>{ctx.beginPath();ctx.moveTo(midX,ey1);ctx.lineTo(midX,Math.min(ROWS*CELL,panY+canvas.height));});
       drawEntityLOS(e,bb,ex0,ey0,ex1,ey1,midX,midY);
       if(e.seenEntity){
         const s=e.seenEntity;const sbb=boundingBox(s.cells);
@@ -1622,14 +1564,15 @@ function draw() {
       const {dx,dy}=e.dir;
       function glowLineHover(draw){ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.shadowColor='white';ctx.shadowBlur=8;ctx.lineWidth=3;draw();ctx.stroke();ctx.strokeStyle='rgba(255,255,255,0.7)';ctx.shadowBlur=0;ctx.lineWidth=1;draw();ctx.stroke();}
       glowLineHover(()=>{ctx.beginPath();ctx.rect(ex0+.5,ey0+.5,ex1-ex0-1,ey1-ey0-1);});
-      if(!(dx>0&&dy===0))glowLineHover(()=>{ctx.beginPath();ctx.moveTo(ex1,midY);ctx.lineTo(canvas.width,midY);});
-      if(!(dx<0&&dy===0))glowLineHover(()=>{ctx.beginPath();ctx.moveTo(ex0,midY);ctx.lineTo(0,midY);});
-      if(!(dx===0&&dy<0))glowLineHover(()=>{ctx.beginPath();ctx.moveTo(midX,ey0);ctx.lineTo(midX,0);});
-      if(!(dx===0&&dy>0))glowLineHover(()=>{ctx.beginPath();ctx.moveTo(midX,ey1);ctx.lineTo(midX,canvas.height);});
+      if(!(dx>0&&dy===0))glowLineHover(()=>{ctx.beginPath();ctx.moveTo(ex1,midY);ctx.lineTo(Math.min(COLS*CELL,panX+canvas.width),midY);});
+      if(!(dx<0&&dy===0))glowLineHover(()=>{ctx.beginPath();ctx.moveTo(ex0,midY);ctx.lineTo(panX,midY);});
+      if(!(dx===0&&dy<0))glowLineHover(()=>{ctx.beginPath();ctx.moveTo(midX,ey0);ctx.lineTo(midX,panY);});
+      if(!(dx===0&&dy>0))glowLineHover(()=>{ctx.beginPath();ctx.moveTo(midX,ey1);ctx.lineTo(midX,Math.min(ROWS*CELL,panY+canvas.height));});
       drawEntityLOS(e,bb,ex0,ey0,ex1,ey1,midX,midY);
       ctx.restore();
     }
   });
+  ctx.restore();
 }
 
 // --- Autosave ---
@@ -1675,7 +1618,7 @@ function startNewGame(){
     showImportError(msg);
     return;
   }
-  COLS=MIN_COLS; ROWS=MIN_ROWS; baseCELL=null;
+  COLS=MIN_COLS; ROWS=MIN_ROWS; panX=0; panY=0;
   resizeCanvas();
   entities=makeEntities(readTypeCounts());flashes.length=0;tick=0;totalCollisions=0;restoreLog([]);
   running=true;hasActiveGame=true;overlay.classList.add('hidden');entitiesSection.style.display='';
@@ -2181,14 +2124,14 @@ window.addEventListener('mouseup',()=>{isCanvasPanning=false;});
 canvas.addEventListener('click',e=>{
   if(canvasPanMoved)return;
   const rect=canvas.getBoundingClientRect();
-  const col=Math.floor((e.clientX-rect.left)/CELL),row=Math.floor((e.clientY-rect.top)/CELL);
+  const col=Math.floor((e.clientX-rect.left+panX)/CELL),row=Math.floor((e.clientY-rect.top+panY)/CELL);
   const hit=entities.findIndex(ent=>ent.cells.some(c=>ent.x+c.dx===col&&ent.y+c.dy===row));
   if(hit!==-1)openEntityEditor(hit);
   else if(entityEditor.classList.contains('visible'))closeEntityEditor(false);
 });
 canvas.addEventListener('mousemove',e=>{
   const rect=canvas.getBoundingClientRect();
-  const col=Math.floor((e.clientX-rect.left)/CELL),row=Math.floor((e.clientY-rect.top)/CELL);
+  const col=Math.floor((e.clientX-rect.left+panX)/CELL),row=Math.floor((e.clientY-rect.top+panY)/CELL);
   canvas.style.cursor=entities.some(ent=>ent.cells.some(c=>ent.x+c.dx===col&&ent.y+c.dy===row))?'pointer':(ZOOM_STEPS[zoomIdx]>1?'grab':'default');
 });
 
@@ -2206,101 +2149,6 @@ resizeHandleV.addEventListener('mousedown',e=>{isVDragging=true;resizeHandleV.cl
 window.addEventListener('mousemove',e=>{if(!isVDragging)return;const sidebar=document.getElementById('editorSidebar').getBoundingClientRect();rightTopH=Math.round(e.clientX-sidebar.left);applyRightTopHeight();});
 window.addEventListener('mouseup',()=>{if(!isVDragging)return;isVDragging=false;resizeHandleV.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect='';});
 
-// Game area resize handles (bottom & right)
-let isGameHDragging=false, isGameWDragging=false;
-const gameResizeBottom=document.getElementById('gameResizeBottom');
-const gameResizeRight=document.getElementById('gameResizeRight');
-let gridResizeStartRows=ROWS, gridResizeStartCols=COLS, gridResizeStartY=0, gridResizeStartX=0, wasRunningBeforeGridResize=false;
-gameResizeBottom.addEventListener('mousedown',e=>{
-  isGameHDragging=true;
-  gridResizeStartRows=ROWS;
-  gridResizeStartY=e.clientY;
-  wasRunningBeforeGridResize=running;
-  if(running){running=false;clearInterval(intervalId);intervalId=null;document.getElementById('statusDisplay').textContent='PAUSED';}
-  document.body.style.cursor='ns-resize';document.body.style.userSelect='none';e.preventDefault();
-});
-gameResizeRight.addEventListener('mousedown',e=>{
-  isGameWDragging=true;
-  gridResizeStartCols=COLS;
-  gridResizeStartX=e.clientX;
-  wasRunningBeforeGridResize=running;
-  if(running){running=false;clearInterval(intervalId);intervalId=null;document.getElementById('statusDisplay').textContent='PAUSED';}
-  document.body.style.cursor='ew-resize';document.body.style.userSelect='none';e.preventDefault();
-});
-function clampGridSize(cols,rows){
-  const maxH=Math.floor((window.innerHeight-TOP_H-BOT_H-PAD_COL)/CELL);
-  const maxW=Math.floor((window.innerWidth-120-PAD_COL)/CELL);
-  const nc=Math.max(MIN_COLS,Math.min(maxW,cols));
-  const nr=Math.max(MIN_ROWS,Math.min(maxH,rows));
-  return {cols:nc,rows:nr};
-}
-function adjustEntitiesForShrink(oldCols,oldRows,newCols,newRows){
-  if(newCols<oldCols){
-    const limitX=newCols;
-    entities.forEach(e=>{
-      const maxDx=Math.max(...e.cells.map(c=>c.dx));
-      const right=e.x+maxDx+1;
-      if(right>limitX){
-        e.x=Math.max(0,limitX-maxDx-1);
-      }
-    });
-  }
-  if(newRows<oldRows){
-    const limitY=newRows;
-    entities.forEach(e=>{
-      const maxDy=Math.max(...e.cells.map(c=>c.dy));
-      const bottom=e.y+maxDy+1;
-      if(bottom>limitY){
-        e.y=Math.max(0,limitY-maxDy-1);
-      }
-    });
-  }
-}
-function applyGridResize(newCols,newRows){
-  const oldCols=COLS, oldRows=ROWS;
-  const clamped=clampGridSize(newCols,newRows);
-  if(clamped.cols===COLS&&clamped.rows===ROWS)return;
-  adjustEntitiesForShrink(oldCols,oldRows,clamped.cols,clamped.rows);
-  COLS=clamped.cols; ROWS=clamped.rows;
-  baseCELL=calcCellSize(leftColW-PAD_COL);
-  CELL=Math.max(1,Math.round(baseCELL*ZOOM_STEPS[zoomIdx]));
-  canvas.width=COLS*CELL; canvas.height=ROWS*CELL;
-  gameAreaW=baseCELL*COLS; gameAreaH=baseCELL*ROWS;
-  gameArea.style.width=gameAreaW+'px'; gameArea.style.height=gameAreaH+'px';
-  leftColW=gameAreaW+PAD_COL;
-  document.querySelector('.left-col').style.width=leftColW+'px';
-  clampPan();updateCanvasPos();updateZoomDisplay();
-  applyRightTopHeight();
-  draw();
-}
-
-window.addEventListener('mousemove',e=>{
-  if(isGameHDragging){
-    if(!CELL)return;
-    const delta=e.clientY-gridResizeStartY;
-    const dRows=Math.round(delta/CELL);
-    const targetRows=gridResizeStartRows+dRows;
-    applyGridResize(COLS,targetRows);
-  }
-  if(isGameWDragging){
-    if(!CELL)return;
-    const delta=e.clientX-gridResizeStartX;
-    const dCols=Math.round(delta/CELL);
-    const targetCols=gridResizeStartCols+dCols;
-    applyGridResize(targetCols,ROWS);
-  }
-});
-window.addEventListener('mouseup',()=>{
-  if(!isGameHDragging&&!isGameWDragging)return;
-  isGameHDragging=false;isGameWDragging=false;
-  document.body.style.cursor='';document.body.style.userSelect='';
-  if(wasRunningBeforeGridResize){
-    running=true;
-    intervalId=setInterval(step,speed);
-    document.getElementById('statusDisplay').textContent='RUNNING';
-  }
-  wasRunningBeforeGridResize=false;
-});
 
 // Export / Import
 function exportEntities(){
@@ -2445,7 +2293,7 @@ document.getElementById('vrHelpClose').addEventListener('click',closeVRHelp);
 vrHelpBackdrop.addEventListener('click',e=>{if(e.target===vrHelpBackdrop)closeVRHelp();});
 window.addEventListener('keydown',e=>{if(vrHelpBackdrop.classList.contains('visible')&&e.code==='Escape'){e.preventDefault();e.stopImmediatePropagation();closeVRHelp();}},true);
 
-window.addEventListener('resize',()=>{leftColW=null;rightTopH=null;baseCELL=null;resizeCanvas();});
+window.addEventListener('resize',()=>{leftColW=null;rightTopH=null;resizeCanvas();});
 
 function eSpan(e){return `<span style="color:${e.def.main};text-shadow:0 0 5px ${e.def.main}60">${e.def.label}</span>`;}
 const LOG_FONT_SIZES=['0.90rem','0.80rem','0.72rem','0.65rem','0.61rem'];

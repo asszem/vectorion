@@ -23,6 +23,9 @@ Everything — HTML structure, CSS styles, and JavaScript logic — is inlined i
 - `dir` — current movement direction `{dx, dy}`
 - `speed` — tiles moved per tick
 - `stopped`, `trail`, `speedTrail`, `changeTarget`, `def` (visual metadata)
+- `visualReaction` — `'ignore'` or `'follow'`; controls reaction to line-of-sight detections
+- `seenEntity` / `followTarget` — current line-of-sight target and locked follow target
+- `customColor` — optional hex color override applied to the entity's visuals
 
 **Movement properties / collision rules**:
 - `destroy` — eliminates anything it touches; two destroyers annihilate each other
@@ -37,10 +40,11 @@ Everything — HTML structure, CSS styles, and JavaScript logic — is inlined i
 
 **UI layout**:
 - Fixed top bar (game name, autosave toast, version label)
-- Left column: canvas inside `.game-area` (resizable via drag handle)
-- Right column: entity legend list + entity editor panel
+- Left column: canvas inside `.game-area`; resizable horizontally via `.resize-handle` and vertically via `.resize-handle-v` drag handles
+- Right column: entity legend list + entity editor panel (includes color picker and visual reaction selector)
 - Fixed bottom bar: tick/collision stats, keyboard controls
 - Overlay modal system: Main Menu → New Game config → active simulation; ESC/game-name click opens Game Options during play
+- Help modals for keyboard shortcuts and visual reactions (`#helpClose`, `#vrHelpClose`)
 
 **Save / Load**:
 - Autosave to `localStorage` key `vectorion_autosave` on pause
@@ -57,13 +61,40 @@ Everything — HTML structure, CSS styles, and JavaScript logic — is inlined i
 
 | Symbol | Description |
 |---|---|
-| `COLS`, `ROWS` | 100 × 100 grid dimensions |
+| `COLS`, `ROWS` | Grid dimensions (dynamic; initialized from `MIN_COLS` / `MIN_ROWS`, default 100 × 100) |
+| `MIN_COLS`, `MIN_ROWS` | Minimum grid size set at game start (default 100 × 100) |
 | `TRAIL_LENGTH` | 14 — length of movement trail |
 | `ROLE_COLORS` | Color/glow definitions keyed by movement property |
-| `currentVersion` | Version string displayed in UI (currently `"v6.00"`) |
-| `speed` | Tick interval in ms (default 80, range 20–500) |
-| `diagonalMode` | Allows 8-directional movement when true |
+| `currentVersion` | Version string displayed in UI (currently `"v6.01"`) |
+| `speed` | Tick interval in ms (default 120) |
+| `diagonalMode` | Allows 8-directional movement when true (default `true`) |
 | `showSpeedTrail` | Renders ghost cells at intermediate positions for fast entities |
+| `maxEntityW`, `maxEntityH` | Max entity shape dimensions at spawn (default 4 × 4) |
+| `maxSpeed` | Max entity speed at spawn (default 3) |
+
+## Git Commit Conventions
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) style:
+
+```
+<type>(<scope>): <description>
+```
+
+Common types: `feat`, `fix`, `refactor`, `style`, `docs`, `chore`
+
+If the commit was authored by Claude, use `claude` as the scope:
+
+```
+feat(claude): add line-of-sight follow behavior
+fix(claude): correct bounce collision on diagonal mode
+```
+
+For human-authored commits the scope is optional or can describe the area changed:
+
+```
+feat: add new movement property
+fix(editor): color picker not saving on cancel
+```
 
 ## Planned Work (todo.md)
 

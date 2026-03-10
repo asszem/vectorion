@@ -1,15 +1,16 @@
-Claude CLI
+Claude CLI - Claude Pro monthly
 claude
 
-Gemini CLI
+Gemini CLI - Free plan
 gemini
 
-OpenAi Codex
+OpenAi Codex - Free plan
 use Cursor extension
 
-Cursor (Default free Claude)
+Cursor (Default free Claude) - Free plan
 use Cursor built in right menu
 
 Copilot
+use Vscode
 
 LLama?
