@@ -472,7 +472,10 @@
   .prop-option[data-prop="change"]  { color: #cc44ff; }
   .vr-option[data-vr="ignore"] { color: var(--green-dim); }
   .vr-option[data-vr="follow"] { color: #00ff41; }
-  .vr-option[data-vr="mark"]   { color: #ffdd00; }
+  .vr-option[data-vr="avoid"]  { color: #ff6688; }
+  .avoid-type-btn { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; padding: 2px 6px; background: none; border: 1px solid rgba(255,102,136,0.3); color: rgba(255,102,136,0.45); cursor: pointer; border-radius: 2px; transition: all 0.12s; letter-spacing: 0.08em; }
+  .avoid-type-btn.active { border-color: #ff6688; color: #ff6688; background: rgba(255,102,136,0.1); }
+  .avoid-type-btn:hover { border-color: rgba(255,102,136,0.7); color: rgba(255,102,136,0.8); }
 
   .color-picker-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
   .color-swatch {
@@ -695,7 +698,17 @@
             <div class="prop-dropdown" id="vrDropdown" style="display:none;">
               <button class="vr-option" data-vr="ignore">○ IGNORE</button>
               <button class="vr-option" data-vr="follow">→ FOLLOW</button>
-              <button class="vr-option" data-vr="mark">◎ MARK</button>
+              <button class="vr-option" data-vr="avoid">↩ AVOID</button>
+            </div>
+          </div>
+          <div id="avoidTypesPanel" style="display:none;margin-top:8px;">
+            <div style="font-size:0.58rem;color:rgba(255,102,136,0.7);letter-spacing:0.12em;margin-bottom:5px;">AVOID TYPES</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+              <button class="avoid-type-btn" data-type="destroy">DESTROY</button>
+              <button class="avoid-type-btn" data-type="bounce">BOUNCE</button>
+              <button class="avoid-type-btn" data-type="stop">STOP</button>
+              <button class="avoid-type-btn" data-type="devour">DEVOUR</button>
+              <button class="avoid-type-btn" data-type="change">CHANGE</button>
             </div>
           </div>
 
@@ -731,6 +744,7 @@
       <div style="display:flex;gap:4px;">
         <button class="log-filter-btn active" id="logFilterCollision" title="Show/hide collision events">COLLISION</button>
         <button class="log-filter-btn active" id="logFilterVision" title="Show/hide vision events">VISION</button>
+        <button class="log-filter-btn active" id="logFilterAvoidance" title="Show/hide avoidance events">AVOIDANCE</button>
       </div>
     </div>
     <div class="game-log" id="gameLog"></div>
@@ -1074,8 +1088,8 @@
         <div class="help-desc">When the entity spots another entity in its line of sight, it locks on and steers toward it each tick. The target is retained even when out of direct sight. Selecting IGNORE removes the follow target.</div>
       </div>
       <div class="help-entry">
-        <div class="help-prop" style="color:var(--green-dim);">◎ MARK</div>
-        <div class="help-desc">Placeholder — reserved for a future visual reaction behaviour.</div>
+        <div class="help-prop" style="color:#ff6688;">↩ AVOID</div>
+        <div class="help-desc">When the entity spots another entity whose collision type matches one of the selected Avoid Types, it moves in the opposite direction to that entity's movement each tick. Avoidance is only active while the target is in direct line of sight.</div>
       </div>
     </div>
     <div class="help-hint">click outside or press ESC to close</div>
@@ -1204,7 +1218,7 @@ function makeEntities(typeCounts) {
         if(!overlapsAny(rx,ry)){x=rx;y=ry;found=true;}
       }
     }
-    const e={ x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)), seenEntity:null, visualReaction:'ignore', followTarget:null, customColor:null };
+    const e={ x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)), seenEntity:null, visualReaction:'ignore', followTarget:null, avoidTarget:null, avoidTypes:['destroy'], customColor:null };
     placed.push(e);
     return e;
   });
@@ -1303,7 +1317,7 @@ function buildLegendIn(container) {
     item.dataset.idx=idx;
     item.title='Click to edit';
     if(isSelected){item.style.borderColor='rgba(255,255,255,0.85)';item.style.boxShadow='0 0 6px rgba(255,255,255,0.4)';}
-    const seenHtml=e.followTarget?`<div class="legend-item-sees" style="color:${e.followTarget.def.main};text-shadow:0 0 5px ${e.followTarget.def.main}60;">→ <span class="seen-name">FOLLOWING — ${e.followTarget.def.label}</span></div>`:e.seenEntity?`<div class="legend-item-sees" style="color:${e.seenEntity.def.main};text-shadow:0 0 5px ${e.seenEntity.def.main}60;">👁 <span class="seen-name">SEEING — ${e.seenEntity.def.label}</span></div>`:`<div class="legend-item-sees" style="opacity:0.35;">👁 <span class="seen-name">None</span></div>`;
+    const seenHtml=e.followTarget?`<div class="legend-item-sees" style="color:${e.followTarget.def.main};text-shadow:0 0 5px ${e.followTarget.def.main}60;">→ <span class="seen-name">FOLLOWING — ${e.followTarget.def.label}</span></div>`:e.avoidTarget?`<div class="legend-item-sees" style="color:#ff6688;text-shadow:0 0 5px #ff668860;">↩ <span class="seen-name">AVOIDING — ${e.avoidTarget.def.label}</span></div>`:e.seenEntity?`<div class="legend-item-sees" style="color:${e.seenEntity.def.main};text-shadow:0 0 5px ${e.seenEntity.def.main}60;">👁 <span class="seen-name">SEEING — ${e.seenEntity.def.label}</span></div>`:`<div class="legend-item-sees" style="opacity:0.35;">👁 <span class="seen-name">None</span></div>`;
     item.innerHTML=`<div class="legend-item-name"><span style="font-family:'Share Tech Mono',monospace;font-weight:bold;color:${e.def.main};text-shadow:0 0 8px ${e.def.main};font-size:1rem;">@</span><span style="color:${e.def.main};text-shadow:0 0 6px ${e.def.main}40;">${e.def.label}</span><span style="opacity:0.4;font-size:0.65rem;font-family:'Share Tech Mono',monospace;">${e.cells.length}c</span></div><div class="legend-item-prop" style="color:${propColor};">${propIcon} ${propLabel} <span style="opacity:0.5;font-size:0.6rem;color:var(--green-dim);">SPD ${e.speed||1}</span></div>${seenHtml}`;
     container.appendChild(item);
   });
@@ -1346,8 +1360,13 @@ function computeVision() {
     e.seenEntity=seen;
     if(e.visualReaction==='follow'){
       if(seen&&!e.followTarget)e.followTarget=seen; // lock on first seen; don't switch
+      e.avoidTarget=null;
+    } else if(e.visualReaction==='avoid'){
+      e.followTarget=null;
+      e.avoidTarget=(seen&&e.avoidTypes&&e.avoidTypes.includes(seen.movementProperty))?seen:null;
     } else {
       e.followTarget=null;
+      e.avoidTarget=null;
     }
   });
 }
@@ -1362,6 +1381,15 @@ function step() {
     if(tdx===0&&tdy===0)return;
     const dirs=getDirSet();
     const best=dirs.reduce((a,d)=>d.dx*tdx+d.dy*tdy>a.dx*tdx+a.dy*tdy?d:a,dirs[0]);
+    e.dir=best;
+  });
+  // Steer avoiding entities away (opposite of avoided entity's direction)
+  entities.forEach(e=>{
+    if(!e.avoidTarget)return;
+    if(!entities.includes(e.avoidTarget)){e.avoidTarget=null;return;}
+    const oppDx=-e.avoidTarget.dir.dx, oppDy=-e.avoidTarget.dir.dy;
+    const dirs=getDirSet();
+    const best=dirs.reduce((a,d)=>d.dx*oppDx+d.dy*oppDy>a.dx*oppDx+a.dy*oppDy?d:a,dirs[0]);
     e.dir=best;
   });
   // Phase 1: compute final positions without mutating e.x/e.y
@@ -1441,8 +1469,10 @@ function step() {
   for(let f=flashes.length-1;f>=0;f--){flashes[f].age++;if(flashes[f].age>10)flashes.splice(f,1);}
   tick++;updateStats();
   const prevSeen=new Map(entities.map(e=>[e,e.seenEntity]));
+  const prevAvoid=new Map(entities.map(e=>[e,e.avoidTarget]));
   computeVision();
   entities.forEach(e=>{const prev=prevSeen.get(e)||null,curr=e.seenEntity||null;if(prev===curr)return;if(prev)addLog(`${eSpan(e)} lost sight of ${eSpan(prev)} at tick ${tick}`,'vision',e.def.label);if(curr)addLog(`${eSpan(e)} saw ${eSpan(curr)} at tick ${tick}`,'vision',e.def.label);});
+  entities.forEach(e=>{const prev=prevAvoid.get(e)||null,curr=e.avoidTarget||null;if(prev===curr)return;if(curr)addLog(`${eSpan(e)} avoids ${eSpan(curr)} (${curr.movementProperty}) at tick ${tick}`,'avoidance',e.def.label);});
   buildLegend();draw();
 }
 
@@ -2026,7 +2056,7 @@ function openEntityEditor(entityIndex){
   editorNameInput.style.display='none';editorTitle.style.display='';editorTitle.textContent=e.def.label;editorTitle.style.color=e.def.main;editorTitle.style.textShadow=`0 0 10px ${e.def.main}`;
   const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='';
   updatePropDisplay(selectedProp,e.changeTarget);
-  selectedVR=e.visualReaction||'ignore';updateVRDisplay(selectedVR);
+  selectedVR=e.visualReaction||'ignore';selectedAvoidTypes=(e.avoidTypes&&e.avoidTypes.length)?[...e.avoidTypes]:['destroy'];updateVRDisplay(selectedVR);updateAvoidTypesDisplay();
   selectedColor=e.customColor||null;buildColorSwatches(selectedColor);
   updateEditorSpeed();
   entityEditor.classList.add('visible');buildLegend();draw();
@@ -2053,7 +2083,7 @@ function closeEntityEditor(revert){
   if(!revert&&editingEntityIndex!==null&&selectedProp){
     const e=entities[editingEntityIndex];
     if(e&&e.movementProperty!==selectedProp){const saved=e.def.label;e.movementProperty=selectedProp;e.def=makeEntityDef(editingEntityIndex,entities.length,selectedProp);e.def.label=saved;if(selectedProp!=='stop')e.stopped=false;if(selectedProp==='change'&&!e.changeTarget)e.changeTarget=randomChangeTarget(null);e.trail=[];if(e.customColor)applyEntityColor(e,e.customColor);}
-    if(e){e.visualReaction=selectedVR;if(selectedVR==='ignore')e.followTarget=null;}
+    if(e){e.visualReaction=selectedVR;if(selectedVR!=='follow')e.followTarget=null;if(selectedVR==='avoid'){e.avoidTypes=selectedAvoidTypes;}else e.avoidTarget=null;}
   }
   propDropdown.style.display='none';vrDropdown.style.display='none';
   entityEditor.classList.remove('visible');editingEntityIndex=null;selectedProp=null;originalProp=null;wasRunningBeforeEdit=false;buildLegend();draw();
@@ -2080,10 +2110,14 @@ editorNameInput.addEventListener('blur',commitNameEdit);
 editorNameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commitNameEdit();}if(e.key==='Escape'){e.preventDefault();e.stopPropagation();editorNameInput.style.display='none';editorTitle.style.display='';const hint=document.getElementById('editorRenameHint');if(hint)hint.style.display='';}});
 
 // Visual Reaction dropdown
-const VR_ICONS={ignore:'○',follow:'→',mark:'◎'};
-const VR_LABELS={ignore:'IGNORE',follow:'FOLLOW',mark:'MARK'};
-const VR_COLORS={ignore:'var(--green-dim)',follow:'#00ff41',mark:'#ffdd00'};
+const VR_ICONS={ignore:'○',follow:'→',avoid:'↩'};
+const VR_LABELS={ignore:'IGNORE',follow:'FOLLOW',avoid:'AVOID'};
+const VR_COLORS={ignore:'var(--green-dim)',follow:'#00ff41',avoid:'#ff6688'};
 let selectedVR='ignore';
+let selectedAvoidTypes=['destroy'];
+function updateAvoidTypesDisplay(){
+  document.querySelectorAll('.avoid-type-btn').forEach(btn=>{btn.classList.toggle('active',selectedAvoidTypes.includes(btn.dataset.type));});
+}
 function updateVRDisplay(vr){
   const btn=document.getElementById('vrCurrentBtn');
   const icon=document.getElementById('vrCurrentIcon'),label=document.getElementById('vrCurrentLabel');
@@ -2091,12 +2125,14 @@ function updateVRDisplay(vr){
   icon.textContent=VR_ICONS[vr]||'○';icon.style.color=col;
   label.textContent=VR_LABELS[vr]||vr.toUpperCase();label.style.color=col;
   if(btn){btn.style.color=col;btn.style.borderColor=col;}
+  const panel=document.getElementById('avoidTypesPanel');if(panel)panel.style.display=vr==='avoid'?'block':'none';
 }
 const vrCurrentBtn=document.getElementById('vrCurrentBtn');
 const vrDropdown=document.getElementById('vrDropdown');
 vrCurrentBtn.addEventListener('click',e=>{e.stopPropagation();const isOpen=vrDropdown.style.display!=='none';if(isOpen){vrDropdown.style.display='none';}else{const r=vrCurrentBtn.getBoundingClientRect();vrDropdown.style.top=r.bottom+'px';vrDropdown.style.left=r.left+'px';vrDropdown.style.width=r.width+'px';vrDropdown.style.display='block';}});
 document.addEventListener('click',()=>{vrDropdown.style.display='none';});
-document.querySelectorAll('.vr-option').forEach(btn=>{btn.addEventListener('click',()=>{selectedVR=btn.dataset.vr;updateVRDisplay(selectedVR);vrDropdown.style.display='none';});});
+document.querySelectorAll('.vr-option').forEach(btn=>{btn.addEventListener('click',()=>{selectedVR=btn.dataset.vr;updateVRDisplay(selectedVR);updateAvoidTypesDisplay();vrDropdown.style.display='none';});});
+document.querySelectorAll('.avoid-type-btn').forEach(btn=>{btn.addEventListener('click',e=>{e.stopPropagation();const t=btn.dataset.type;if(selectedAvoidTypes.includes(t)){if(selectedAvoidTypes.length>1)selectedAvoidTypes=selectedAvoidTypes.filter(x=>x!==t);}else{selectedAvoidTypes=[...selectedAvoidTypes,t];}updateAvoidTypesDisplay();});});
 
 // Collision Reaction dropdown
 const PROP_ICONS_MAP={destroy:'☠',bounce:'◈',stop:'◼',devour:'◉',change:'⟳'};
@@ -2258,6 +2294,8 @@ function importEntities(text) {
       seenEntity: null,
       visualReaction: src.visualReaction || 'ignore',
       followTarget: null,
+      avoidTarget: null,
+      avoidTypes: (Array.isArray(src.avoidTypes)&&src.avoidTypes.length>0)?src.avoidTypes:['destroy'],
       customColor: src.customColor || null,
     };
   });
@@ -2325,7 +2363,7 @@ window.addEventListener('resize',()=>{leftColW=null;rightTopH=null;resizeCanvas(
 function eSpan(e){return `<span style="color:${e.def.main};text-shadow:0 0 5px ${e.def.main}60">${e.def.label}</span>`;}
 const LOG_FONT_SIZES=['0.90rem','0.80rem','0.72rem','0.65rem','0.61rem'];
 const LOG_BASE_FONT='0.58rem';
-const logFilter={collision:true,vision:true};
+const logFilter={collision:true,vision:true,avoidance:true};
 function updateLogFontSizes(){const el=document.getElementById('gameLog');if(!el)return;Array.from(el.children).slice(0,LOG_FONT_SIZES.length+1).forEach((c,i)=>{c.style.fontSize=i<LOG_FONT_SIZES.length?LOG_FONT_SIZES[i]:LOG_BASE_FONT;});}
 function makeLogNode(entry){
   const d=document.createElement('div');d.className='log-entry';d.innerHTML=entry.html;
@@ -2376,6 +2414,9 @@ document.getElementById('logFilterCollision').addEventListener('click',function(
 });
 document.getElementById('logFilterVision').addEventListener('click',function(){
   logFilter.vision=!logFilter.vision;this.classList.toggle('active',logFilter.vision);applyLogFilter();
+});
+document.getElementById('logFilterAvoidance').addEventListener('click',function(){
+  logFilter.avoidance=!logFilter.avoidance;this.classList.toggle('active',logFilter.avoidance);applyLogFilter();
 });
 
 resizeCanvas();buildLegend();updateStats();showMainMenu();draw();

@@ -1,22 +1,12 @@
 # Work in Progress
 
-* fix: zoom, play area size, viewport size
+* feat: Vision: Avoid
+* feat: velocity - entities can change their speed. 
 
-## Follow
-* For some reason, the following works now.
 
-Update the behaviour of the entity so if the followed entity is seen, the following is moving towards its direction until collision.
-If followed entity is not seen by follower, then follower should stop reduce Movement Speed to zero. Introduce a new entity property: Detection speed, which can be a number from 1-max speed. By default, it should be the same for every entity as its movement speed. 
-4. Turn direction (clockwise)
-5. Use as many turns in a tick as the speed of the entity
-6. If marked entity is seen during turn, move towards it
 
 ## Misc changes
-* misc(cursor-vim): map :E to saveAll
 * misc(cursor-vim): map Ctrl-O to jump to location
-* misc(git-bash): install goto
-* misc(vscode): install vscode, import all settings from Cursor
-* misc(cursor): save settings.json to .mydotfiles
 
 ## Minor or undecided changes
 * change wording from Game to Simulation
@@ -33,6 +23,12 @@ To be continued
 
 # Future plans
 
+## Entity properties that determine their actions
+- HP - collision reaction, can be devoured or destroyed if higher hp
+- Speed - max speed
+- Energy - determines max speed
+- Recovery - to recover energy
+- Flee / Catch - speed up towards / from enemy
 
 ## Rewind 
 Everything can be replayed or tick reverted.
