@@ -1,6 +1,8 @@
 # 2026-03-10
 
+* fix: stoped entities will resume movement to the opposite direction they got bumped from
 * feat: Vision: Avoid
+* fix: save/load simulation entity out of space errors
 * refactor: footer and header menu item repositioning
 * fix: initial and running collision detection (works well at this point)
 * fix: zoom, play area size, viewport size

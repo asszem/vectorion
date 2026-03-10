@@ -1513,7 +1513,7 @@ function step() {
   });
 
   // Phase 2: collision detection along entire path (start → target) when speed > 1
-  const collided=new Set(),toDestroy=new Set(),toStop=new Set(),toResume=new Set(),toDevour=new Map(),toMutate=new Set();
+  const collided=new Set(),toDestroy=new Set(),toStop=new Set(),toResume=new Map(),toDevour=new Map(),toMutate=new Set();
   const eff=e=>e.movementProperty==='change'?e.changeTarget:e.movementProperty;
   for(let i=0;i<entities.length;i++){
     for(let j=i+1;j<entities.length;j++){
@@ -1527,7 +1527,7 @@ function step() {
       else if(pj==='destroy'&&pi!=='destroy'){toDestroy.add(i);flashes.push({x:ei.x+ei.centX,y:ei.y+ei.centY,age:0,color:'#ff2222'});totalCollisions++;addLog(`${eSpan(ej)} destroyed ${eSpan(ei)} at tick ${tick}`,'collision',ej.def.label);}
       else if(pi==='devour'&&pj!=='destroy'){if(!toDevour.has(i))toDevour.set(i,[]);toDevour.get(i).push(j);flashes.push({x:ej.x+ej.centX,y:ej.y+ej.centY,age:0,color:'#ff8800'});totalCollisions++;addLog(`${eSpan(ei)} devoured ${eSpan(ej)} at tick ${tick}`,'collision',ei.def.label);}
       else if(pj==='devour'&&pi!=='destroy'){if(!toDevour.has(j))toDevour.set(j,[]);toDevour.get(j).push(i);flashes.push({x:ei.x+ei.centX,y:ei.y+ei.centY,age:0,color:'#ff8800'});totalCollisions++;addLog(`${eSpan(ej)} devoured ${eSpan(ei)} at tick ${tick}`,'collision',ej.def.label);}
-      else if(pi==='stop'||pj==='stop'){[i,j].forEach(idx=>{const e=entities[idx];if(eff(e)==='stop'){if(e.stopped)toResume.add(idx);else toStop.add(idx);}else collided.add(idx);});}
+      else if(pi==='stop'||pj==='stop'){const iIsStop=eff(entities[i])==='stop',jIsStop=eff(entities[j])==='stop';if(iIsStop){if(entities[i].stopped)toResume.set(i,entities[j].dir);else toStop.add(i);}else collided.add(i);if(jIsStop){if(entities[j].stopped)toResume.set(j,entities[i].dir);else toStop.add(j);}else collided.add(j);}
       else{collided.add(i);collided.add(j);}
     }
   }
@@ -1535,7 +1535,7 @@ function step() {
   const devourVictims=new Set();
   toDevour.forEach((victims,di)=>{victims.forEach(vi=>{if(toDestroy.has(vi)||devourVictims.has(vi))return;devourVictims.add(vi);const d=entities[di],v=entities[vi];v.cells.forEach(c=>d.cells.push({dx:c.dx+(v.x-d.x),dy:c.dy+(v.y-d.y)}));d.centX=d.cells.reduce((s,c)=>s+c.dx,0)/d.cells.length;d.centY=d.cells.reduce((s,c)=>s+c.dy,0)/d.cells.length;});});
   toStop.forEach(i=>{entities[i].stopped=true;finalNext[i]={nx:entities[i].x,ny:entities[i].y};flashes.push({x:entities[i].x+entities[i].centX,y:entities[i].y+entities[i].centY,age:0,color:'#ffdd00'});totalCollisions++;addLog(`${eSpan(entities[i])} halted at tick ${tick}`,'collision',entities[i].def.label);});
-  toResume.forEach(i=>{entities[i].stopped=false;flashes.push({x:entities[i].x+entities[i].centX,y:entities[i].y+entities[i].centY,age:0,color:'#ffffff'});addLog(`${eSpan(entities[i])} resumed at tick ${tick}`,'collision',entities[i].def.label);});
+  toResume.forEach((launchDir,i)=>{const e=entities[i];const dirs=getDirSet();const avail=dirs.filter(d=>!entityHitsWall(e,d));e.dir=avail.length>0?avail.reduce((best,d)=>d.dx*launchDir.dx+d.dy*launchDir.dy>best.dx*launchDir.dx+best.dy*launchDir.dy?d:best,avail[0]):launchDir;e.stopped=false;flashes.push({x:e.x+e.centX,y:e.y+e.centY,age:0,color:'#ffffff'});addLog(`${eSpan(e)} resumed at tick ${tick}`,'collision',e.def.label);});
   if(toStop.size>0||toResume.size>0)buildLegend();
   let didMutate=false;
   toMutate.forEach(i=>{if(toDestroy.has(i))return;const e=entities[i];const prev=e.changeTarget;e.changeTarget=randomChangeTarget(prev);flashes.push({x:e.x+e.centX,y:e.y+e.centY,age:0,color:'#cc44ff'});didMutate=true;});
