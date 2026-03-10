@@ -1,5 +1,8 @@
 # Work in progress
 
+* feat: assign entire groups to Follow / Avoid actions
+
+
 # Tasks to do
 
 ## New Simulation Menu updates
@@ -13,6 +16,7 @@
 * General settings to have sim speed, display trail, etc. settings.
 * Entity setting: Add new entity from scratch
 * Update save/load sim config, that includes all entity templates
+* Initial entity placement shape: Circle, Random, Expanded (as far as possible)
 
 ## Simulation Options menu updates
 * Display options (Speed trail, Line of Sight display)

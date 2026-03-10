@@ -512,9 +512,16 @@
   .group-header:hover { background:rgba(0,200,255,0.1); }
   .bulk-group-name-input { width:100%; background:none; border:none; border-bottom:1px dashed rgba(0,200,255,0.5); color:#00c8ff; font-family:'Share Tech Mono',monospace; font-size:0.8rem; letter-spacing:0.15em; padding:3px 0; outline:none; text-transform:uppercase; }
   .bulk-group-name-input::placeholder { color:rgba(0,200,255,0.3); }
+  .group-collapse-btn { background:none; border:none; color:rgba(0,200,255,0.6); cursor:pointer; font-size:0.65rem; padding:0 4px 0 0; line-height:1; flex-shrink:0; transition:color 0.12s; }
+  .group-collapse-btn:hover { color:#00c8ff; }
   .group-header-label { flex:1; }
   .group-header-disband { cursor:pointer; font-size:0.55rem; padding:1px 5px; border:1px solid rgba(255,80,80,0.35); color:#ff6666; background:none; font-family:'Share Tech Mono',monospace; letter-spacing:0.08em; opacity:0.6; }
   .group-header-disband:hover { opacity:1; border-color:#ff2222; color:#ff2222; }
+  #disbandConfirmBackdrop { position:fixed; inset:0; background:rgba(2,13,2,0.88); z-index:700; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.15s; }
+  #disbandConfirmBackdrop.visible { opacity:1; pointer-events:all; }
+  #disbandConfirmModal { background:var(--panel); border:1px solid rgba(255,80,80,0.5); box-shadow:0 0 40px rgba(255,50,50,0.12); padding:24px 28px 18px; width:300px; max-width:92vw; }
+  #disbandConfirmModal .disband-title { font-family:'VT323',monospace; font-size:1.5rem; letter-spacing:0.2em; color:#ff6666; text-shadow:0 0 10px rgba(255,50,50,0.4); margin-bottom:10px; }
+  #disbandConfirmModal .disband-msg { font-size:0.6rem; color:var(--green-dim); letter-spacing:0.1em; margin-bottom:18px; line-height:1.6; }
   .group-items { display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:2px; padding:4px; }
   .bulk-action-bar { display:flex; align-items:center; gap:6px; padding:4px 8px; margin-bottom:4px; border:1px solid rgba(0,200,255,0.35); background:rgba(0,200,255,0.05); }
   .bulk-action-bar-count { font-family:'Share Tech Mono',monospace; font-size:0.6rem; color:#00c8ff; letter-spacing:0.1em; flex:1; }
@@ -783,7 +790,7 @@
       </div>
     </div>
     <div class="entities-section" id="entitiesSection">
-      <div class="sidebar-section-title">ENTITIES <span style="opacity:0.5;font-size:0.5rem">— click to edit, shift+click to select</span></div>
+      <div class="sidebar-section-title">ENTITIES <span style="opacity:0.5;font-size:0.5rem">— click to edit · shift+click to select · click group header to edit group</span></div>
       <div id="shiftModeLabel">⊞ SELECTION MODE — SHIFT+CLICK TO SELECT</div>
       <div id="bulkActionBar" class="bulk-action-bar" style="display:none;">
         <span class="bulk-action-bar-count" id="bulkSelCount">0 selected</span>
@@ -1213,6 +1220,17 @@
   </div>
 </div>
 
+<div id="disbandConfirmBackdrop">
+  <div id="disbandConfirmModal">
+    <div class="disband-title">DISBAND GROUP</div>
+    <div class="disband-msg" id="disbandConfirmMsg">This will ungroup all members.</div>
+    <div class="editor-actions">
+      <button class="editor-btn" id="disbandCancelBtn">CANCEL</button>
+      <button class="editor-btn" id="disbandConfirmBtn" style="border-color:#ff6666;color:#ff6666;">DISBAND</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const currentVersion = "v6.01";
   const versionElements = document.querySelectorAll('.version-label');
@@ -1468,16 +1486,19 @@ function buildLegendIn(container) {
     header.dataset.groupId=g.id;
     const gDisplayName=g.name||`GROUP ${g.id}`;
     const colorDot=g.color?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${g.color};margin-right:4px;box-shadow:0 0 4px ${g.color}80;flex-shrink:0;"></span>`:'';
-    header.innerHTML=`<span class="group-header-label" style="display:flex;align-items:center;">${colorDot}◧ ${gDisplayName} <span style="opacity:0.5;margin-left:4px;">(${g.members.length})</span></span><button class="group-header-disband" data-group-id="${g.id}">DISBAND</button>`;
+    const chevron=g.collapsed?'▶':'▼';
+    header.innerHTML=`<button class="group-collapse-btn" data-group-id="${g.id}">${chevron}</button><span class="group-header-label" style="display:flex;align-items:center;">${colorDot}◧ ${gDisplayName} <span style="opacity:0.5;margin-left:4px;">(${g.members.length})</span></span><button class="group-header-disband" data-group-id="${g.id}">DISBAND</button>`;
     section.appendChild(header);
-    const items=document.createElement('div');
-    items.className='group-items';
-    g.members.forEach(e=>{
-      const idx=entities.indexOf(e);
-      if(idx<0)return;
-      items.appendChild(makeLegendItem(e,idx));
-    });
-    section.appendChild(items);
+    if(!g.collapsed){
+      const items=document.createElement('div');
+      items.className='group-items';
+      g.members.forEach(e=>{
+        const idx=entities.indexOf(e);
+        if(idx<0)return;
+        items.appendChild(makeLegendItem(e,idx));
+      });
+      section.appendChild(items);
+    }
     container.appendChild(section);
   });
   // Render ungrouped entities in a multi-column grid
@@ -1490,13 +1511,21 @@ function buildLegendIn(container) {
   if(ungrouped.children.length>0)container.appendChild(ungrouped);
 }
 function buildLegend(){buildLegendIn(document.getElementById('entityLegend'));}
+function pickGroupColor(){
+  const used=new Set(entityGroups.map(g=>g.color).filter(Boolean));
+  const avail=ENTITY_COLORS.filter(c=>c!==null&&!used.has(c));
+  const pool=avail.length>0?avail:ENTITY_COLORS.filter(c=>c!==null);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
 function createGroup(){
   if(bulkSelectedIndices.size<2)return;
   const members=[...bulkSelectedIndices].map(i=>entities[i]).filter(Boolean);
   if(members.length<2)return;
-  entityGroups.push({id:nextGroupId++,name:null,color:null,members});
+  const color=pickGroupColor();
+  entityGroups.push({id:nextGroupId++,name:null,color,collapsed:false,members});
+  members.forEach(e=>applyEntityColor(e,color));
   bulkSelectedIndices=new Set();
-  updateBulkActionBar();buildLegend();
+  updateBulkActionBar();buildLegend();draw();
 }
 function updateBulkActionBar(){const bar=document.getElementById('bulkActionBar'),cnt=document.getElementById('bulkSelCount'),grpBtn=document.getElementById('bulkGroupBtn');if(!bar||!cnt)return;const n=bulkSelectedIndices.size;bar.style.display=n>0?'flex':'none';cnt.textContent=`${n} selected`;if(grpBtn)grpBtn.style.display=n>=2?'':'none';}
 
@@ -1505,7 +1534,9 @@ const entityLegendEl=document.getElementById('entityLegend');
 entityLegendEl.addEventListener('mousedown',e=>{
   e.preventDefault();
   const disbandBtn=e.target.closest('.group-header-disband');
-  if(disbandBtn){const gid=parseInt(disbandBtn.dataset.groupId);entityGroups=entityGroups.filter(g=>g.id!==gid);buildLegend();return;}
+  if(disbandBtn){const gid=parseInt(disbandBtn.dataset.groupId);openDisbandConfirm(gid);return;}
+  const collapseBtn=e.target.closest('.group-collapse-btn');
+  if(collapseBtn){const gid=parseInt(collapseBtn.dataset.groupId);const g=entityGroups.find(x=>x.id===gid);if(g)g.collapsed=!g.collapsed;buildLegend();return;}
   const groupHeader=e.target.closest('.group-header');
   if(groupHeader){const gid=parseInt(groupHeader.dataset.groupId);if(!isNaN(gid))openGroupEdit(gid);return;}
   const item=e.target.closest('.legend-item');
@@ -2429,7 +2460,7 @@ function buildSavePayload(savedAt){
     rows: ROWS,
     log: logEntries,
     entities: entities.map(serializeEntity),
-    groups: entityGroups.map(g=>({id:g.id,name:g.name||null,color:g.color||null,memberIndices:g.members.map(e=>entities.indexOf(e)).filter(i=>i>=0)})),
+    groups: entityGroups.map(g=>({id:g.id,name:g.name||null,color:g.color||null,collapsed:g.collapsed||false,memberIndices:g.members.map(e=>entities.indexOf(e)).filter(i=>i>=0)})),
   };
 }
 function exportEntities(){
@@ -2532,7 +2563,7 @@ function importEntities(text) {
   entities = imported;
   entities.forEach(e=>{if(e.customColor)applyEntityColor(e,e.customColor);});
   entityGroups=[];nextGroupId=1;
-  if(Array.isArray(data.groups)){data.groups.forEach(g=>{const members=(g.memberIndices||[]).filter(i=>i>=0&&i<entities.length).map(i=>entities[i]);if(members.length>=2){entityGroups.push({id:g.id,name:g.name||null,color:g.color||null,members});nextGroupId=Math.max(nextGroupId,g.id+1);}});}
+  if(Array.isArray(data.groups)){data.groups.forEach(g=>{const members=(g.memberIndices||[]).filter(i=>i>=0&&i<entities.length).map(i=>entities[i]);if(members.length>=2){entityGroups.push({id:g.id,name:g.name||null,color:g.color||null,collapsed:g.collapsed||false,members});nextGroupId=Math.max(nextGroupId,g.id+1);}});}
   tick = data.tick || 0;
   totalCollisions = 0;
   diagonalMode = data.diagonalMode !== undefined ? data.diagonalMode : true;
@@ -2712,6 +2743,14 @@ function openGroupEdit(groupId){
   document.getElementById('bulkEditBackdrop').classList.add('visible');
 }
 function closeBulkEdit(){document.getElementById('bulkEditBackdrop').classList.remove('visible');document.getElementById('bulkPropDropdown').style.display='none';document.getElementById('bulkVRDropdown').style.display='none';editingGroupId=null;}
+let disbandTargetId=null;
+function openDisbandConfirm(gid){const g=entityGroups.find(x=>x.id===gid);if(!g)return;disbandTargetId=gid;const name=g.name||`GROUP ${g.id}`;document.getElementById('disbandConfirmMsg').textContent=`Disband "${name}"? This will ungroup ${g.members.length} entit${g.members.length===1?'y':'ies'}.`;document.getElementById('disbandConfirmBackdrop').classList.add('visible');}
+function closeDisbandConfirm(){document.getElementById('disbandConfirmBackdrop').classList.remove('visible');disbandTargetId=null;}
+function confirmDisband(){if(disbandTargetId===null)return;entityGroups=entityGroups.filter(g=>g.id!==disbandTargetId);closeDisbandConfirm();buildLegend();}
+document.getElementById('disbandCancelBtn').addEventListener('click',closeDisbandConfirm);
+document.getElementById('disbandConfirmBtn').addEventListener('click',confirmDisband);
+document.getElementById('disbandConfirmBackdrop').addEventListener('click',e=>{if(e.target===document.getElementById('disbandConfirmBackdrop'))closeDisbandConfirm();});
+window.addEventListener('keydown',e=>{if(document.getElementById('disbandConfirmBackdrop').classList.contains('visible')&&(e.code==='Escape'||e.key==='Escape')){e.preventDefault();e.stopImmediatePropagation();closeDisbandConfirm();}},true);
 function applyBulkEdit(){
   const applyColor=bulkColor!==undefined;
   bulkSelectedIndices.forEach(idx=>{const e=entities[idx];if(!e)return;if(e.movementProperty!==bulkProp){const saved=e.def.label;e.movementProperty=bulkProp;e.def=makeEntityDef(idx,entities.length,bulkProp);e.def.label=saved;if(bulkProp!=='stop')e.stopped=false;if(bulkProp==='change'&&!e.changeTarget)e.changeTarget=randomChangeTarget(null);e.trail=[];if(e.customColor)applyEntityColor(e,e.customColor);}e.visualReaction=bulkVR;if(bulkVR!=='follow')e.followTarget=null;if(bulkVR==='avoid')e.avoidTypes=[...bulkAvoidTypes];else e.avoidTarget=null;if(applyColor)applyEntityColor(e,bulkColor);});

@@ -1,5 +1,6 @@
 # 2026-03-10
 
+* feat: collapsible entity groups, new color when new group created, group disband confirmation message
 * feat: multicolumn entity list
 * fix: play area, entity list and log messages horizontal size distribution
 * feat: entity groups - group entities, name group, assign color, and properties, display groups in list
