@@ -1,5 +1,6 @@
 # 2026-03-10
 
+* feat: entity groups - group entities, name group, assign color, and properties, display groups in list
 * fix: stoped entities will resume movement to the opposite direction they got bumped from
 * feat: Vision: Avoid
 * fix: save/load simulation entity out of space errors

@@ -1,7 +1,4 @@
 # Work in progress
-* feat: multi edit entities
-* fix: save/load simulation entity out of space errors
-* feat: multi column entities list according to available space
 
 # Tasks to do
 
@@ -9,11 +6,13 @@
 * rework the New Simulation menu
 * change wording to Max Entity Size, Play Area Size, Max Entity Speed, 
 * add toggle: Line of Sight display
-* Introduce Entity profiles - that holds all available options for an entity
-* User can create, modify, save and load entity profiles (json)
+* create Entity groups
+* Introduce Entity Templates - that holds all available options for an entity
+* User can create, modify, save and load entity templates (json)
 * Game config menu to have 2 section: general settings and entity settings
 * General settings to have sim speed, display trail, etc. settings.
 * Entity setting: Add new entity from scratch
+* Update save/load sim config, that includes all entity templates
 
 ## Simulation Options menu updates
 * Display options (Speed trail, Line of Sight display)
@@ -27,8 +26,14 @@
 * resize play area viewport, adjusting zoom level accordingly
 
 ## Entitiy list updates
+* feat: multi edit entities
+* feat: multi column entities list according to available space
 
 ## Footer updates
+* redesign the buttons and the label texts to look more concise 
+
+## Collision detection 
+* fix: entities should only change direction when they were connected directly. If the collision detection triggers, change their speed? or draw them until they would overlap and then change their direction?
 
 ## Minor or undecided changes
 

@@ -416,6 +416,14 @@
 
   .entity-legend { display: flex; flex-direction: column; gap: 2px; color: var(--green-dim); }
 
+  @keyframes select-pulse { 0%,100%{opacity:1;} 50%{opacity:0.55;} }
+  #shiftModeLabel { display:none; font-size:0.55rem; letter-spacing:0.2em; color:#00c8ff; padding:3px 8px; margin-bottom:3px; border:1px solid rgba(0,200,255,0.3); background:rgba(0,200,255,0.07); animation:select-pulse 1.1s ease-in-out infinite; }
+  .shift-select-mode #shiftModeLabel { display:block; }
+  .shift-select-mode .legend-item { border-color:rgba(0,200,255,0.28) !important; cursor:crosshair; }
+  .shift-select-mode .legend-item:hover { border-color:rgba(0,200,255,0.75) !important; background:rgba(0,200,255,0.09) !important; box-shadow:0 0 8px rgba(0,200,255,0.18); }
+  .shift-select-mode .legend-item.bulk-selected { border-color:rgba(0,200,255,1) !important; background:rgba(0,200,255,0.14) !important; box-shadow:0 0 10px rgba(0,200,255,0.3); }
+  .shift-select-mode .group-header { border-color:rgba(0,200,255,0.45) !important; background:rgba(0,200,255,0.08) !important; }
+
   .legend-item {
     display: flex; flex-direction: column;
     cursor: pointer; padding: 5px 8px;
@@ -498,6 +506,15 @@
   .avoid-type-btn.active { border-color: #ff6688; color: #ff6688; background: rgba(255,102,136,0.1); }
   .avoid-type-btn:hover { border-color: rgba(255,102,136,0.7); color: rgba(255,102,136,0.8); }
   .legend-item.bulk-selected { border-color: rgba(0,200,255,0.7) !important; background: rgba(0,200,255,0.06) !important; }
+  .group-section { margin-bottom: 4px; }
+  .group-header { display:flex; align-items:center; gap:6px; padding:3px 8px; font-size:0.6rem; letter-spacing:0.15em; color:rgba(0,200,255,0.7); border:1px solid rgba(0,200,255,0.25); background:rgba(0,200,255,0.05); margin-bottom:2px; cursor:pointer; transition:background 0.12s; }
+  .group-header:hover { background:rgba(0,200,255,0.1); }
+  .bulk-group-name-input { width:100%; background:none; border:none; border-bottom:1px dashed rgba(0,200,255,0.5); color:#00c8ff; font-family:'Share Tech Mono',monospace; font-size:0.8rem; letter-spacing:0.15em; padding:3px 0; outline:none; text-transform:uppercase; }
+  .bulk-group-name-input::placeholder { color:rgba(0,200,255,0.3); }
+  .group-header-label { flex:1; }
+  .group-header-disband { cursor:pointer; font-size:0.55rem; padding:1px 5px; border:1px solid rgba(255,80,80,0.35); color:#ff6666; background:none; font-family:'Share Tech Mono',monospace; letter-spacing:0.08em; opacity:0.6; }
+  .group-header-disband:hover { opacity:1; border-color:#ff2222; color:#ff2222; }
+  .group-items { padding-left:6px; border-left:2px solid rgba(0,200,255,0.2); margin-bottom:2px; display:flex; flex-direction:column; gap:2px; }
   .bulk-action-bar { display:flex; align-items:center; gap:6px; padding:4px 8px; margin-bottom:4px; border:1px solid rgba(0,200,255,0.35); background:rgba(0,200,255,0.05); }
   .bulk-action-bar-count { font-family:'Share Tech Mono',monospace; font-size:0.6rem; color:#00c8ff; letter-spacing:0.1em; flex:1; }
   .bulk-action-btn { font-family:'Share Tech Mono',monospace; font-size:0.55rem; padding:2px 7px; background:none; border:1px solid rgba(0,200,255,0.4); color:#00c8ff; cursor:pointer; letter-spacing:0.08em; transition:all 0.12s; }
@@ -766,8 +783,10 @@
     </div>
     <div class="entities-section" id="entitiesSection">
       <div class="sidebar-section-title">ENTITIES <span style="opacity:0.5;font-size:0.5rem">— click to edit, shift+click to select</span></div>
+      <div id="shiftModeLabel">⊞ SELECTION MODE — SHIFT+CLICK TO SELECT</div>
       <div id="bulkActionBar" class="bulk-action-bar" style="display:none;">
         <span class="bulk-action-bar-count" id="bulkSelCount">0 selected</span>
+        <button class="bulk-action-btn" id="bulkGroupBtn" style="display:none;">CREATE GROUP</button>
         <button class="bulk-action-btn" id="bulkEditBtn">EDIT SELECTED</button>
         <button class="bulk-action-btn" id="bulkClearBtn" title="Clear selection">✕</button>
       </div>
@@ -1088,27 +1107,27 @@
 <div id="helpBackdrop">
   <div id="helpModal">
     <button id="helpClose">✕</button>
-    <div class="help-title">MOVEMENT PROPERTIES</div>
+    <div class="help-title">COLLISION REACTION</div>
     <div class="help-grid">
       <div class="help-entry">
         <div class="help-prop" style="color:#ff2222;">☠ DESTROY</div>
-        <div class="help-desc">Eliminates any entity it collides with. If two DESTROY entities meet, both are annihilated. Cannot be consumed by DEVOUR.</div>
+        <div class="help-desc">Eliminates any entity it touches. If two DESTROY entities collide, both are annihilated simultaneously. DESTROY cannot be consumed by DEVOUR — it destroys the devourer instead.</div>
       </div>
       <div class="help-entry">
         <div class="help-prop" style="color:#00ff41;">◈ BOUNCE</div>
-        <div class="help-desc">Deflects off walls and other entities. Changes direction on every collision. Default movement behaviour.</div>
+        <div class="help-desc">Deflects off walls and other entities by picking a new random direction on each collision. Default collision behaviour. Two BOUNCE entities simply redirect each other.</div>
       </div>
       <div class="help-entry">
         <div class="help-prop" style="color:#ffdd00;">◼ STOP</div>
-        <div class="help-desc">Freezes in place upon any collision. A second collision from another entity will unfreeze it, resuming movement.</div>
+        <div class="help-desc">Freezes in place on first collision. When hit again by a moving entity, it resumes movement — launching in the same direction as the impact, like a physical push. The colliding entity bounces away as normal.</div>
       </div>
       <div class="help-entry">
         <div class="help-prop" style="color:#ff8800;">◉ DEVOUR</div>
-        <div class="help-desc">Assimilates entities it collides with, absorbing their cells and growing larger. Cannot assimilate a DESTROY entity — instead gets eliminated by it.</div>
+        <div class="help-desc">Absorbs any entity it touches, adding its cells to its own body and growing larger each time. Cannot consume DESTROY entities — contact with DESTROY eliminates it instead.</div>
       </div>
       <div class="help-entry">
         <div class="help-prop" style="color:#cc44ff;">⟳ CHANGE-[PROP]</div>
-        <div class="help-desc">Acts as the property shown in brackets upon collision, then immediately mutates to a different random property. The bracket label updates live to reflect the next behaviour. When two CHANGE-[DEVOUR] entities collide, the one created earlier wins — it absorbs the other and then mutates.</div>
+        <div class="help-desc">On collision, acts as the property shown in brackets, then immediately mutates into a new random property. The label updates live to show the next behaviour. Two CHANGE entities each apply their current bracket property simultaneously, then both mutate.</div>
       </div>
     </div>
     <div class="help-hint">click outside or press ESC to close</div>
@@ -1122,15 +1141,15 @@
     <div class="help-grid">
       <div class="help-entry">
         <div class="help-prop" style="color:var(--green-dim);">○ IGNORE</div>
-        <div class="help-desc">The entity pays no attention to other entities in its line of sight. Default behaviour.</div>
+        <div class="help-desc">The entity takes no action based on its line of sight. It moves freely according to its collision rules only. Default behaviour.</div>
       </div>
       <div class="help-entry">
-        <div class="help-prop" style="color:var(--green);">→ FOLLOW</div>
-        <div class="help-desc">When the entity spots another entity in its line of sight, it locks on and steers toward it each tick. The target is retained even when out of direct sight. Selecting IGNORE removes the follow target.</div>
+        <div class="help-prop" style="color:#00ff41;">→ FOLLOW</div>
+        <div class="help-desc">When the entity spots another entity in its line of sight, it locks on as a follow target and steers toward it every tick. The lock persists even after the target leaves direct sight — the entity keeps heading to the last known position. The lock is only released if the target is destroyed or the reaction is changed to IGNORE.</div>
       </div>
       <div class="help-entry">
         <div class="help-prop" style="color:#ff6688;">↩ AVOID</div>
-        <div class="help-desc">When the entity spots another entity whose collision type matches one of the selected Avoid Types, it moves in the opposite direction to that entity's movement each tick. Avoidance is only active while the target is in direct line of sight.</div>
+        <div class="help-desc">When the entity sees another entity whose Collision Reaction matches one of the selected Avoid Types, it steers away — moving in the same direction the threat is travelling, mirrored to flee. Avoidance is reactive: it only applies each tick that the threat is in direct line of sight. Use the Avoid Types selector to choose which collision types trigger this response; at least one type must remain selected.</div>
       </div>
     </div>
     <div class="help-hint">click outside or press ESC to close</div>
@@ -1140,6 +1159,10 @@
 <div id="bulkEditBackdrop">
   <div id="bulkEditModal">
     <div class="bulk-modal-title" id="bulkEditTitle">BULK EDIT</div>
+    <div id="bulkGroupNameRow" style="display:none;margin-bottom:14px;">
+      <div style="font-size:0.58rem;color:rgba(0,200,255,0.6);letter-spacing:0.12em;margin-bottom:6px;">GROUP NAME</div>
+      <input class="bulk-group-name-input" id="bulkGroupNameInput" type="text" maxlength="24" placeholder="ENTER GROUP NAME">
+    </div>
     <div style="font-size:0.58rem;color:var(--green-dim);letter-spacing:0.12em;margin-bottom:6px;">COLLISION REACTION</div>
     <div class="prop-selector-wrap">
       <button class="prop-current-btn" id="bulkPropCurrentBtn">
@@ -1177,6 +1200,10 @@
         <button class="avoid-type-btn" data-type="devour">DEVOUR</button>
         <button class="avoid-type-btn" data-type="change">CHANGE</button>
       </div>
+    </div>
+    <div id="bulkColorRow" style="margin-bottom:12px;">
+      <div style="font-size:0.58rem;color:var(--green-dim);letter-spacing:0.12em;margin-bottom:6px;">COLOR</div>
+      <div class="color-picker-row" id="bulkColorSwatchRow"></div>
     </div>
     <div class="editor-actions">
       <button class="editor-btn" id="bulkCancelBtn">CANCEL</button>
@@ -1325,6 +1352,13 @@ const ZOOM_STEPS=[0.25,0.5,0.75,1.0,1.5,2.0,3.0,4.0];
 let zoomIdx=3, baseCELL=null, panX=0, panY=0, gameAreaW=0, gameAreaH=0;
 let logEntries=[];
 let bulkSelectedIndices=new Set();
+let entityGroups=[]; // [{id, members:[entity refs]}]
+let nextGroupId=1;
+let shiftHeld=false;
+function setShiftHeld(v){shiftHeld=v;const s=document.getElementById('entitiesSection');if(s)s.classList.toggle('shift-select-mode',v);}
+document.addEventListener('keydown',e=>{if(e.key==='Shift'&&!shiftHeld)setShiftHeld(true);});
+document.addEventListener('keyup',e=>{if(e.key==='Shift')setShiftHeld(false);});
+window.addEventListener('blur',()=>setShiftHeld(false));
 
 const TOP_H=44, BOT_H=64, PAD_COL=20;
 let leftColW=null, rightTopH=null, playHeightPx=null;
@@ -1392,36 +1426,74 @@ let hoveredEntityIndex=null;
 const editorTitle=document.getElementById('editorTitle');
 const editorNameInput=document.getElementById('editorNameInput');
 
-function buildLegendIn(container) {
-  container.innerHTML='';
+function makeLegendItem(e,idx){
   const propColors={destroy:'#ff2222',bounce:'#00a828',stop:'#ffdd00',devour:'#ff8800',change:'#cc44ff'};
   const propIcons={destroy:'☠',bounce:'◈',stop:'◼',devour:'◉',change:'⟳'};
+  const propLabel=e.movementProperty==='change'?changeLabel(e.changeTarget||'bounce'):e.movementProperty.toUpperCase()+(e.movementProperty==='stop'&&e.stopped?' [HALTED]':'');
+  const propColor=propColors[e.movementProperty]||'var(--green-dim)';
+  const propIcon=propIcons[e.movementProperty]||'?';
+  const isSelected=editingEntityIndex===idx;
+  const isBulkSelected=bulkSelectedIndices.has(idx);
+  const item=document.createElement('div');
+  item.className='legend-item'+(isBulkSelected?' bulk-selected':'');
+  item.dataset.idx=idx;
+  item.title=isBulkSelected?'Shift+click to deselect':'Click to edit · Shift+click to select';
+  if(isSelected){item.style.borderColor='rgba(255,255,255,0.85)';item.style.boxShadow='0 0 6px rgba(255,255,255,0.4)';}
+  const seenHtml=e.followTarget?`<div class="legend-item-sees" style="color:${e.followTarget.def.main};text-shadow:0 0 5px ${e.followTarget.def.main}60;">→ <span class="seen-name">FOLLOWING — ${e.followTarget.def.label}</span></div>`:e.avoidTarget?`<div class="legend-item-sees" style="color:#ff6688;text-shadow:0 0 5px #ff668860;">↩ <span class="seen-name">AVOIDING — ${e.avoidTarget.def.label}</span></div>`:e.seenEntity?`<div class="legend-item-sees" style="color:${e.seenEntity.def.main};text-shadow:0 0 5px ${e.seenEntity.def.main}60;">👁 <span class="seen-name">SEEING — ${e.seenEntity.def.label}</span></div>`:`<div class="legend-item-sees" style="opacity:0.35;">👁 <span class="seen-name">None</span></div>`;
+  item.innerHTML=`<div class="legend-item-name"><span style="font-family:'Share Tech Mono',monospace;font-weight:bold;color:${e.def.main};text-shadow:0 0 8px ${e.def.main};font-size:1rem;">@</span><span style="color:${e.def.main};text-shadow:0 0 6px ${e.def.main}40;">${e.def.label}</span><span style="opacity:0.4;font-size:0.65rem;font-family:'Share Tech Mono',monospace;">${e.cells.length}c</span></div><div class="legend-item-prop" style="color:${propColor};">${propIcon} ${propLabel} <span style="opacity:0.5;font-size:0.6rem;color:var(--green-dim);">SPD ${e.speed||1}</span></div>${seenHtml}`;
+  return item;
+}
+function buildLegendIn(container) {
+  container.innerHTML='';
+  const groupedSet=new Set(entityGroups.flatMap(g=>g.members));
+  // Render groups first
+  entityGroups.forEach(g=>{
+    const section=document.createElement('div');
+    section.className='group-section';
+    const header=document.createElement('div');
+    header.className='group-header';
+    header.dataset.groupId=g.id;
+    const gDisplayName=g.name||`GROUP ${g.id}`;
+    const colorDot=g.color?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${g.color};margin-right:4px;box-shadow:0 0 4px ${g.color}80;flex-shrink:0;"></span>`:'';
+    header.innerHTML=`<span class="group-header-label" style="display:flex;align-items:center;">${colorDot}◧ ${gDisplayName} <span style="opacity:0.5;margin-left:4px;">(${g.members.length})</span></span><button class="group-header-disband" data-group-id="${g.id}">DISBAND</button>`;
+    section.appendChild(header);
+    const items=document.createElement('div');
+    items.className='group-items';
+    g.members.forEach(e=>{
+      const idx=entities.indexOf(e);
+      if(idx<0)return;
+      items.appendChild(makeLegendItem(e,idx));
+    });
+    section.appendChild(items);
+    container.appendChild(section);
+  });
+  // Render ungrouped entities
   entities.forEach((e,idx)=>{
-    const propLabel=e.movementProperty==='change'?changeLabel(e.changeTarget||'bounce'):e.movementProperty.toUpperCase()+(e.movementProperty==='stop'&&e.stopped?' [HALTED]':'');
-    const propColor=propColors[e.movementProperty]||'var(--green-dim)';
-    const propIcon=propIcons[e.movementProperty]||'?';
-    const isSelected=editingEntityIndex===idx;
-    const isHovered=hoveredEntityIndex===idx;
-    const isBulkSelected=bulkSelectedIndices.has(idx);
-    const item=document.createElement('div');
-    item.className='legend-item'+(isBulkSelected?' bulk-selected':'');
-    item.dataset.idx=idx;
-    item.title=isBulkSelected?'Shift+click to deselect':'Click to edit · Shift+click to select';
-    if(isSelected){item.style.borderColor='rgba(255,255,255,0.85)';item.style.boxShadow='0 0 6px rgba(255,255,255,0.4)';}
-    const seenHtml=e.followTarget?`<div class="legend-item-sees" style="color:${e.followTarget.def.main};text-shadow:0 0 5px ${e.followTarget.def.main}60;">→ <span class="seen-name">FOLLOWING — ${e.followTarget.def.label}</span></div>`:e.avoidTarget?`<div class="legend-item-sees" style="color:#ff6688;text-shadow:0 0 5px #ff668860;">↩ <span class="seen-name">AVOIDING — ${e.avoidTarget.def.label}</span></div>`:e.seenEntity?`<div class="legend-item-sees" style="color:${e.seenEntity.def.main};text-shadow:0 0 5px ${e.seenEntity.def.main}60;">👁 <span class="seen-name">SEEING — ${e.seenEntity.def.label}</span></div>`:`<div class="legend-item-sees" style="opacity:0.35;">👁 <span class="seen-name">None</span></div>`;
-    item.innerHTML=`<div class="legend-item-name"><span style="font-family:'Share Tech Mono',monospace;font-weight:bold;color:${e.def.main};text-shadow:0 0 8px ${e.def.main};font-size:1rem;">@</span><span style="color:${e.def.main};text-shadow:0 0 6px ${e.def.main}40;">${e.def.label}</span><span style="opacity:0.4;font-size:0.65rem;font-family:'Share Tech Mono',monospace;">${e.cells.length}c</span></div><div class="legend-item-prop" style="color:${propColor};">${propIcon} ${propLabel} <span style="opacity:0.5;font-size:0.6rem;color:var(--green-dim);">SPD ${e.speed||1}</span></div>${seenHtml}`;
-    container.appendChild(item);
+    if(groupedSet.has(e))return;
+    container.appendChild(makeLegendItem(e,idx));
   });
 }
 function buildLegend(){buildLegendIn(document.getElementById('entityLegend'));}
-function updateBulkActionBar(){const bar=document.getElementById('bulkActionBar'),cnt=document.getElementById('bulkSelCount');if(!bar||!cnt)return;const n=bulkSelectedIndices.size;bar.style.display=n>0?'flex':'none';cnt.textContent=`${n} selected`;}
+function createGroup(){
+  if(bulkSelectedIndices.size<2)return;
+  const members=[...bulkSelectedIndices].map(i=>entities[i]).filter(Boolean);
+  if(members.length<2)return;
+  entityGroups.push({id:nextGroupId++,name:null,color:null,members});
+  bulkSelectedIndices=new Set();
+  updateBulkActionBar();buildLegend();
+}
+function updateBulkActionBar(){const bar=document.getElementById('bulkActionBar'),cnt=document.getElementById('bulkSelCount'),grpBtn=document.getElementById('bulkGroupBtn');if(!bar||!cnt)return;const n=bulkSelectedIndices.size;bar.style.display=n>0?'flex':'none';cnt.textContent=`${n} selected`;if(grpBtn)grpBtn.style.display=n>=2?'':'none';}
 
 // Event delegation for legend — survives DOM rebuilds every tick
 const entityLegendEl=document.getElementById('entityLegend');
 entityLegendEl.addEventListener('mousedown',e=>{
+  e.preventDefault();
+  const disbandBtn=e.target.closest('.group-header-disband');
+  if(disbandBtn){const gid=parseInt(disbandBtn.dataset.groupId);entityGroups=entityGroups.filter(g=>g.id!==gid);buildLegend();return;}
+  const groupHeader=e.target.closest('.group-header');
+  if(groupHeader){const gid=parseInt(groupHeader.dataset.groupId);if(!isNaN(gid))openGroupEdit(gid);return;}
   const item=e.target.closest('.legend-item');
   if(!item)return;
-  e.preventDefault();
   const idx=parseInt(item.dataset.idx);
   if(isNaN(idx))return;
   if(e.shiftKey){
@@ -1561,7 +1633,7 @@ function step() {
   }
   // Residual guard: catch any remaining overlaps after reverts (e.g. cascading conflicts)
   for(let i=0;i<entities.length;i++){if(toRemove.has(i))continue;for(let j=i+1;j<entities.length;j++){if(toRemove.has(j))continue;if(entitiesOverlap(entities[i],finalNext[i],entities[j],finalNext[j])){if(!entities[i].stopped)finalNext[i]={nx:entities[i].x,ny:entities[i].y};else if(!entities[j].stopped)finalNext[j]={nx:entities[j].x,ny:entities[j].y};}}}
-  [...toRemove].sort((a,b)=>b-a).forEach(i=>{if(editingEntityIndex===i)closeEntityEditor(false);else if(editingEntityIndex!==null&&editingEntityIndex>i)editingEntityIndex--;bulkSelectedIndices.delete(i);const shiftedBulk=new Set();bulkSelectedIndices.forEach(j=>shiftedBulk.add(j>i?j-1:j));bulkSelectedIndices=shiftedBulk;entities.splice(i,1);finalNext.splice(i,1);});
+  [...toRemove].sort((a,b)=>b-a).forEach(i=>{if(editingEntityIndex===i)closeEntityEditor(false);else if(editingEntityIndex!==null&&editingEntityIndex>i)editingEntityIndex--;bulkSelectedIndices.delete(i);const shiftedBulk=new Set();bulkSelectedIndices.forEach(j=>shiftedBulk.add(j>i?j-1:j));bulkSelectedIndices=shiftedBulk;const removedEnt=entities[i];entityGroups.forEach(g=>{g.members=g.members.filter(e=>e!==removedEnt);});entityGroups=entityGroups.filter(g=>g.members.length>0);entities.splice(i,1);finalNext.splice(i,1);});
   if(toRemove.size>0)updateBulkActionBar();
   if(toRemove.size>0)buildLegend();
   entities.forEach((e,i)=>{if(!e.stopped){e.trail.push({x:e.x+e.centX,y:e.y+e.centY});if(e.trail.length>TRAIL_LENGTH)e.trail.shift();}e.x=finalNext[i].nx;e.y=finalNext[i].ny;});
@@ -1774,7 +1846,7 @@ function startNewGame(){
   }
   COLS=MIN_COLS; ROWS=MIN_ROWS; panX=0; panY=0;
   resizeCanvas();
-  entities=makeEntities(readTypeCounts());flashes.length=0;tick=0;totalCollisions=0;restoreLog([]);
+  entities=makeEntities(readTypeCounts());flashes.length=0;tick=0;totalCollisions=0;restoreLog([]);entityGroups=[];nextGroupId=1;
   running=true;hasActiveGame=true;overlay.classList.add('hidden');entitiesSection.style.display='';
   buildLegend();updateStats();intervalId=setInterval(step,speed);
   document.getElementById('statusDisplay').textContent='RUNNING';
@@ -2341,6 +2413,7 @@ function buildSavePayload(savedAt){
     rows: ROWS,
     log: logEntries,
     entities: entities.map(serializeEntity),
+    groups: entityGroups.map(g=>({id:g.id,name:g.name||null,color:g.color||null,memberIndices:g.members.map(e=>entities.indexOf(e)).filter(i=>i>=0)})),
   };
 }
 function exportEntities(){
@@ -2442,6 +2515,8 @@ function importEntities(text) {
 
   entities = imported;
   entities.forEach(e=>{if(e.customColor)applyEntityColor(e,e.customColor);});
+  entityGroups=[];nextGroupId=1;
+  if(Array.isArray(data.groups)){data.groups.forEach(g=>{const members=(g.memberIndices||[]).filter(i=>i>=0&&i<entities.length).map(i=>entities[i]);if(members.length>=2){entityGroups.push({id:g.id,name:g.name||null,color:g.color||null,members});nextGroupId=Math.max(nextGroupId,g.id+1);}});}
   tick = data.tick || 0;
   totalCollisions = 0;
   diagonalMode = data.diagonalMode !== undefined ? data.diagonalMode : true;
@@ -2564,14 +2639,71 @@ document.getElementById('logFilterAvoidance').addEventListener('click',function(
 });
 
 // Bulk edit modal
-let bulkProp='bounce',bulkVR='ignore',bulkAvoidTypes=['destroy'],wasRunningBeforeBulk=false;
+let bulkProp='bounce',bulkVR='ignore',bulkAvoidTypes=['destroy'],bulkColor=undefined,editingGroupId=null,wasRunningBeforeBulk=false;
 function updateBulkPropDisplay(prop){const btn=document.getElementById('bulkPropCurrentBtn'),icon=document.getElementById('bulkPropCurrentIcon'),label=document.getElementById('bulkPropCurrentLabel');if(!btn)return;const color=PROP_COLORS_MAP[prop]||'var(--green)';icon.textContent=PROP_ICONS_MAP[prop]||'?';icon.style.color=color;label.textContent=prop.toUpperCase();btn.style.color=color;btn.style.borderColor=color;}
 function updateBulkVRDisplay(vr){const btn=document.getElementById('bulkVRCurrentBtn'),icon=document.getElementById('bulkVRCurrentIcon'),label=document.getElementById('bulkVRCurrentLabel');if(!btn)return;const col=VR_COLORS[vr]||'var(--green-dim)';icon.textContent=VR_ICONS[vr]||'○';icon.style.color=col;label.textContent=VR_LABELS[vr]||vr.toUpperCase();label.style.color=col;btn.style.color=col;btn.style.borderColor=col;const panel=document.getElementById('bulkAvoidTypesPanel');if(panel)panel.style.display=vr==='avoid'?'block':'none';}
 function updateBulkAvoidTypesDisplay(){document.querySelectorAll('#bulkEditModal .avoid-type-btn').forEach(btn=>btn.classList.toggle('active',bulkAvoidTypes.includes(btn.dataset.type)));}
-function openBulkEdit(){if(!bulkSelectedIndices.size)return;wasRunningBeforeBulk=running;if(running)toggleRunning();const first=entities[[...bulkSelectedIndices][0]];bulkProp=first?first.movementProperty:'bounce';bulkVR=first?(first.visualReaction||'ignore'):'ignore';bulkAvoidTypes=first&&first.avoidTypes&&first.avoidTypes.length?[...first.avoidTypes]:['destroy'];const n=bulkSelectedIndices.size;document.getElementById('bulkEditTitle').textContent=`BULK EDIT — ${n} ENTIT${n===1?'Y':'IES'}`;updateBulkPropDisplay(bulkProp);updateBulkVRDisplay(bulkVR);updateBulkAvoidTypesDisplay();document.getElementById('bulkEditBackdrop').classList.add('visible');}
-function closeBulkEdit(){document.getElementById('bulkEditBackdrop').classList.remove('visible');document.getElementById('bulkPropDropdown').style.display='none';document.getElementById('bulkVRDropdown').style.display='none';}
-function applyBulkEdit(){bulkSelectedIndices.forEach(idx=>{const e=entities[idx];if(!e)return;if(e.movementProperty!==bulkProp){const saved=e.def.label;e.movementProperty=bulkProp;e.def=makeEntityDef(idx,entities.length,bulkProp);e.def.label=saved;if(bulkProp!=='stop')e.stopped=false;if(bulkProp==='change'&&!e.changeTarget)e.changeTarget=randomChangeTarget(null);e.trail=[];if(e.customColor)applyEntityColor(e,e.customColor);}e.visualReaction=bulkVR;if(bulkVR!=='follow')e.followTarget=null;if(bulkVR==='avoid')e.avoidTypes=[...bulkAvoidTypes];else e.avoidTarget=null;});bulkSelectedIndices=new Set();updateBulkActionBar();closeBulkEdit();buildLegend();draw();}
+function buildBulkColorSwatches(activeHex){
+  const row=document.getElementById('bulkColorSwatchRow');if(!row)return;
+  row.innerHTML='';
+  ENTITY_COLORS.forEach(hex=>{
+    const sw=document.createElement('div');
+    sw.className='color-swatch'+(hex===activeHex?' active':'');
+    if(hex===null){sw.style.background='transparent';sw.style.border='2px solid var(--green-dim)';sw.title='Default (role color)';}
+    else{sw.style.background=hex;sw.title=hex;}
+    sw.addEventListener('click',()=>{
+      row.querySelectorAll('.color-swatch').forEach(s=>{s.classList.remove('active');if(s.style.background==='transparent'){s.style.borderColor='var(--green-dim)';s.style.boxShadow='';}});
+      sw.classList.add('active');
+      if(hex===null){sw.style.borderColor='#ffffff';sw.style.boxShadow='0 0 6px rgba(255,255,255,0.6)';}
+      bulkColor=hex;
+    });
+    row.appendChild(sw);
+  });
+}
+function openBulkEdit(){
+  if(!bulkSelectedIndices.size)return;
+  wasRunningBeforeBulk=running;if(running)toggleRunning();
+  editingGroupId=null;
+  const first=entities[[...bulkSelectedIndices][0]];
+  bulkProp=first?first.movementProperty:'bounce';
+  bulkVR=first?(first.visualReaction||'ignore'):'ignore';
+  bulkAvoidTypes=first&&first.avoidTypes&&first.avoidTypes.length?[...first.avoidTypes]:['destroy'];
+  bulkColor=undefined;
+  const n=bulkSelectedIndices.size;
+  document.getElementById('bulkEditTitle').textContent=`BULK EDIT — ${n} ENTIT${n===1?'Y':'IES'}`;
+  document.getElementById('bulkGroupNameRow').style.display='none';
+  updateBulkPropDisplay(bulkProp);updateBulkVRDisplay(bulkVR);updateBulkAvoidTypesDisplay();
+  buildBulkColorSwatches(null);
+  document.getElementById('bulkEditBackdrop').classList.add('visible');
+}
+function openGroupEdit(groupId){
+  const g=entityGroups.find(x=>x.id===groupId);if(!g)return;
+  wasRunningBeforeBulk=running;if(running)toggleRunning();
+  editingGroupId=groupId;
+  bulkSelectedIndices=new Set(g.members.map(e=>entities.indexOf(e)).filter(i=>i>=0));
+  const first=g.members[0];
+  bulkProp=first?first.movementProperty:'bounce';
+  bulkVR=first?(first.visualReaction||'ignore'):'ignore';
+  bulkAvoidTypes=first&&first.avoidTypes&&first.avoidTypes.length?[...first.avoidTypes]:['destroy'];
+  bulkColor=undefined;
+  document.getElementById('bulkEditTitle').textContent=`EDIT ${g.name||`GROUP ${g.id}`}`;
+  const nameRow=document.getElementById('bulkGroupNameRow');nameRow.style.display='';
+  document.getElementById('bulkGroupNameInput').value=g.name||'';
+  updateBulkPropDisplay(bulkProp);updateBulkVRDisplay(bulkVR);updateBulkAvoidTypesDisplay();
+  buildBulkColorSwatches(g.color!==undefined?g.color:null);
+  bulkColor=g.color!==undefined?g.color:undefined;
+  updateBulkActionBar();buildLegend();
+  document.getElementById('bulkEditBackdrop').classList.add('visible');
+}
+function closeBulkEdit(){document.getElementById('bulkEditBackdrop').classList.remove('visible');document.getElementById('bulkPropDropdown').style.display='none';document.getElementById('bulkVRDropdown').style.display='none';editingGroupId=null;}
+function applyBulkEdit(){
+  const applyColor=bulkColor!==undefined;
+  bulkSelectedIndices.forEach(idx=>{const e=entities[idx];if(!e)return;if(e.movementProperty!==bulkProp){const saved=e.def.label;e.movementProperty=bulkProp;e.def=makeEntityDef(idx,entities.length,bulkProp);e.def.label=saved;if(bulkProp!=='stop')e.stopped=false;if(bulkProp==='change'&&!e.changeTarget)e.changeTarget=randomChangeTarget(null);e.trail=[];if(e.customColor)applyEntityColor(e,e.customColor);}e.visualReaction=bulkVR;if(bulkVR!=='follow')e.followTarget=null;if(bulkVR==='avoid')e.avoidTypes=[...bulkAvoidTypes];else e.avoidTarget=null;if(applyColor)applyEntityColor(e,bulkColor);});
+  if(editingGroupId!==null){const g=entityGroups.find(x=>x.id===editingGroupId);if(g){const raw=document.getElementById('bulkGroupNameInput').value.trim().toUpperCase();g.name=raw||null;if(bulkColor!==undefined)g.color=bulkColor;}}
+  bulkSelectedIndices=new Set();updateBulkActionBar();closeBulkEdit();buildLegend();draw();
+}
 // Bulk edit event wiring
+document.getElementById('bulkGroupBtn').addEventListener('click',createGroup);
 document.getElementById('bulkEditBtn').addEventListener('click',openBulkEdit);
 document.getElementById('bulkClearBtn').addEventListener('click',()=>{bulkSelectedIndices=new Set();updateBulkActionBar();buildLegend();});
 document.getElementById('bulkCancelBtn').addEventListener('click',closeBulkEdit);
