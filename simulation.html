@@ -1185,14 +1185,28 @@ function makeEntities(typeCounts) {
   const pool = [];
   Object.entries(typeCounts).forEach(([prop,count])=>{ for(let k=0;k<count;k++) pool.push(prop); });
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  const placed = [];
+  const radius = Math.floor(Math.min(COLS, ROWS) * 0.32);
   return pool.map((movementProperty,i)=>{
     const cells=randomPolyomino(maxEntityW,maxEntityH), bb=boundingBox(cells);
     const w=bb.maxX-bb.minX+1, h=bb.maxY-bb.minY+1;
-    const angle=(i/pool.length)*Math.PI*2;
-    const cx=Math.round(50+32*Math.cos(angle)), cy=Math.round(50+32*Math.sin(angle));
-    const x=Math.max(0,Math.min(COLS-w,cx-Math.floor(w/2))), y=Math.max(0,Math.min(ROWS-h,cy-Math.floor(h/2)));
     const centX=cells.reduce((s,c)=>s+c.dx,0)/cells.length, centY=cells.reduce((s,c)=>s+c.dy,0)/cells.length;
-    return { x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)), seenEntity:null, visualReaction:'ignore', followTarget:null, customColor:null };
+    const proto = {cells};
+    const overlapsAny = (px,py) => placed.some(p=>entitiesOverlap(proto,{nx:px,ny:py},p,{nx:p.x,ny:p.y}));
+    // Start with evenly spaced circle position, then try random fallbacks if occupied
+    const angle=(i/pool.length)*Math.PI*2;
+    const cx=Math.round(COLS/2+radius*Math.cos(angle)), cy=Math.round(ROWS/2+radius*Math.sin(angle));
+    let x=Math.max(0,Math.min(COLS-w,cx-Math.floor(w/2))), y=Math.max(0,Math.min(ROWS-h,cy-Math.floor(h/2)));
+    if(overlapsAny(x,y)){
+      let found=false;
+      for(let attempt=0;attempt<300&&!found;attempt++){
+        const rx=Math.floor(Math.random()*(COLS-w)), ry=Math.floor(Math.random()*(ROWS-h));
+        if(!overlapsAny(rx,ry)){x=rx;y=ry;found=true;}
+      }
+    }
+    const e={ x,y,cells,w,h,centX,centY, dir:randomDir(), trail:[], def:makeEntityDef(i,pool.length,movementProperty), movementProperty, changeTarget:movementProperty==='change'?randomChangeTarget(null):null, stopped:false, collisions:0, speed:Math.max(1,Math.ceil(Math.random()*maxSpeed)), seenEntity:null, visualReaction:'ignore', followTarget:null, customColor:null };
+    placed.push(e);
+    return e;
   });
 }
 
