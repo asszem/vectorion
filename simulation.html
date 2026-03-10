@@ -414,7 +414,8 @@
     padding-bottom: 3px; margin-bottom: 3px; text-transform: uppercase;
   }
 
-  .entity-legend { display: flex; flex-direction: column; gap: 2px; color: var(--green-dim); }
+  .entity-legend { display: flex; flex-direction: column; gap: 4px; color: var(--green-dim); }
+  .legend-ungrouped { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 2px; }
 
   @keyframes select-pulse { 0%,100%{opacity:1;} 50%{opacity:0.55;} }
   #shiftModeLabel { display:none; font-size:0.55rem; letter-spacing:0.2em; color:#00c8ff; padding:3px 8px; margin-bottom:3px; border:1px solid rgba(0,200,255,0.3); background:rgba(0,200,255,0.07); animation:select-pulse 1.1s ease-in-out infinite; }
@@ -429,12 +430,12 @@
     cursor: pointer; padding: 5px 8px;
     border: 1px solid transparent;
     transition: border-color 0.15s, background 0.15s;
-    gap: 1px;
+    gap: 1px; min-width: 0;
   }
   .legend-item:hover { border-color: var(--green-dim); background: rgba(0,255,65,0.05); }
   .legend-item-name {
     font-size: 1.1rem; font-family: 'VT323', monospace; letter-spacing: 0.12em;
-    display: flex; align-items: baseline; gap: 6px;
+    display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
   }
   .legend-item-prop { font-size: 0.72rem; letter-spacing: 0.1em; opacity: 0.85; padding-left: 2px; }
   .legend-item-sees { font-size: 0.6rem; letter-spacing: 0.1em; padding-left: 2px; opacity: 0.9; }
@@ -506,15 +507,15 @@
   .avoid-type-btn.active { border-color: #ff6688; color: #ff6688; background: rgba(255,102,136,0.1); }
   .avoid-type-btn:hover { border-color: rgba(255,102,136,0.7); color: rgba(255,102,136,0.8); }
   .legend-item.bulk-selected { border-color: rgba(0,200,255,0.7) !important; background: rgba(0,200,255,0.06) !important; }
-  .group-section { margin-bottom: 4px; }
-  .group-header { display:flex; align-items:center; gap:6px; padding:3px 8px; font-size:0.6rem; letter-spacing:0.15em; color:rgba(0,200,255,0.7); border:1px solid rgba(0,200,255,0.25); background:rgba(0,200,255,0.05); margin-bottom:2px; cursor:pointer; transition:background 0.12s; }
+  .group-section { margin-bottom: 4px; border:1px solid rgba(0,200,255,0.18); background:rgba(0,200,255,0.02); }
+  .group-header { display:flex; align-items:center; gap:6px; padding:3px 8px; font-size:0.6rem; letter-spacing:0.15em; color:rgba(0,200,255,0.7); border-bottom:1px solid rgba(0,200,255,0.18); background:rgba(0,200,255,0.05); cursor:pointer; transition:background 0.12s; }
   .group-header:hover { background:rgba(0,200,255,0.1); }
   .bulk-group-name-input { width:100%; background:none; border:none; border-bottom:1px dashed rgba(0,200,255,0.5); color:#00c8ff; font-family:'Share Tech Mono',monospace; font-size:0.8rem; letter-spacing:0.15em; padding:3px 0; outline:none; text-transform:uppercase; }
   .bulk-group-name-input::placeholder { color:rgba(0,200,255,0.3); }
   .group-header-label { flex:1; }
   .group-header-disband { cursor:pointer; font-size:0.55rem; padding:1px 5px; border:1px solid rgba(255,80,80,0.35); color:#ff6666; background:none; font-family:'Share Tech Mono',monospace; letter-spacing:0.08em; opacity:0.6; }
   .group-header-disband:hover { opacity:1; border-color:#ff2222; color:#ff2222; }
-  .group-items { padding-left:6px; border-left:2px solid rgba(0,200,255,0.2); margin-bottom:2px; display:flex; flex-direction:column; gap:2px; }
+  .group-items { display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:2px; padding:4px; }
   .bulk-action-bar { display:flex; align-items:center; gap:6px; padding:4px 8px; margin-bottom:4px; border:1px solid rgba(0,200,255,0.35); background:rgba(0,200,255,0.05); }
   .bulk-action-bar-count { font-family:'Share Tech Mono',monospace; font-size:0.6rem; color:#00c8ff; letter-spacing:0.1em; flex:1; }
   .bulk-action-btn { font-family:'Share Tech Mono',monospace; font-size:0.55rem; padding:2px 7px; background:none; border:1px solid rgba(0,200,255,0.4); color:#00c8ff; cursor:pointer; letter-spacing:0.08em; transition:all 0.12s; }
@@ -1372,7 +1373,7 @@ function calcCellSize(canvasPixelW) {
 function applyRightTopHeight(){
   const sidebar=document.getElementById('editorSidebar');
   const totalW=sidebar.offsetWidth;
-  if(rightTopH===null)rightTopH=Math.floor(totalW/3);
+  if(rightTopH===null)rightTopH=Math.floor(totalW*2/3);
   const minW=80, maxW=totalW-85;
   rightTopH=Math.max(minW,Math.min(maxW,rightTopH));
   document.getElementById('rightTopArea').style.width=rightTopH+'px';
@@ -1404,16 +1405,28 @@ function resetZoom(){
   clampPan();updateZoomDisplay();draw();
 }
 function resizeCanvas() {
-  if(leftColW===null) leftColW=Math.floor(window.innerWidth*0.62);
-  const minLeft=COLS*4+PAD_COL, maxLeft=window.innerWidth-120;
-  leftColW=Math.max(minLeft,Math.min(maxLeft,leftColW));
-  baseCELL=calcCellSize(leftColW-PAD_COL);
+  const HANDLE_W=5, MIN_RIGHT_W=220;
+  const maxCanvasW=window.innerWidth-MIN_RIGHT_W-HANDLE_W-PAD_COL;
+  if(leftColW===null){
+    // Initial: fit canvas into max available width (may still be height-limited)
+    baseCELL=calcCellSize(Math.max(COLS*4,maxCanvasW));
+  } else {
+    // User-dragged: clamp then compute cell size from dragged width
+    const minLeft=COLS*4+PAD_COL, maxLeft=window.innerWidth-MIN_RIGHT_W-HANDLE_W;
+    leftColW=Math.max(minLeft,Math.min(maxLeft,leftColW));
+    baseCELL=calcCellSize(leftColW-PAD_COL);
+  }
   CELL=Math.max(1,Math.round(baseCELL*ZOOM_STEPS[zoomIdx]));
   FONT_SIZE=Math.max(6,Math.floor(CELL*0.85));
   gameAreaW=baseCELL*COLS; gameAreaH=baseCELL*ROWS;
   canvas.width=gameAreaW; canvas.height=gameAreaH;
   gameArea.style.width=gameAreaW+'px'; gameArea.style.height=gameAreaH+'px';
+  // Snap left-col to actual canvas width — no dead space between canvas and right panel
+  leftColW=gameAreaW+PAD_COL;
   document.querySelector('.left-col').style.width=leftColW+'px';
+  const sidebarEl=document.getElementById('editorSidebar');
+  sidebarEl.style.height=(gameAreaH+20)+'px';
+  sidebarEl.style.alignSelf='flex-start';
   clampPan();updateCanvasPos();updateZoomDisplay();
   applyRightTopHeight();
   draw();
@@ -1467,11 +1480,14 @@ function buildLegendIn(container) {
     section.appendChild(items);
     container.appendChild(section);
   });
-  // Render ungrouped entities
+  // Render ungrouped entities in a multi-column grid
+  const ungrouped=document.createElement('div');
+  ungrouped.className='legend-ungrouped';
   entities.forEach((e,idx)=>{
     if(groupedSet.has(e))return;
-    container.appendChild(makeLegendItem(e,idx));
+    ungrouped.appendChild(makeLegendItem(e,idx));
   });
+  if(ungrouped.children.length>0)container.appendChild(ungrouped);
 }
 function buildLegend(){buildLegendIn(document.getElementById('entityLegend'));}
 function createGroup(){

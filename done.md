@@ -1,5 +1,7 @@
 # 2026-03-10
 
+* feat: multicolumn entity list
+* fix: play area, entity list and log messages horizontal size distribution
 * feat: entity groups - group entities, name group, assign color, and properties, display groups in list
 * fix: stoped entities will resume movement to the opposite direction they got bumped from
 * feat: Vision: Avoid

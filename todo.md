@@ -16,7 +16,7 @@
 
 ## Simulation Options menu updates
 * Display options (Speed trail, Line of Sight display)
-
+* Graphics settings: Glow effect, Trail, Line of sight
 ## Log updates
 
 ## Save / load updates
