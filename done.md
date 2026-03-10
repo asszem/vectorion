@@ -1,5 +1,7 @@
 # 2026-03-10
 
+* feat: Vision: Avoid
+* refactor: footer and header menu item repositioning
 * fix: initial and running collision detection (works well at this point)
 * fix: zoom, play area size, viewport size
 
@@ -19,6 +21,7 @@
 * fix: display crosshair and line of sight when the simulation runs and user hovers over entity list
 * fix: entity not seeing other entity, even if it is partially in its line of sight
 * fix: seen other entity display font barely visible, make it bigger
+* fix: change wording from Game to Simulation
 
 # 2026-03-07 - Initial game setup, Collision reactions, save/load functions, LOS
 

@@ -1,37 +1,52 @@
-# Work in Progress
+# Work in progress
+* feat: multi edit entities
+* fix: save/load simulation entity out of space errors
+* feat: multi column entities list according to available space
 
-* feat: Vision: Avoid
-* feat: velocity - entities can change their speed. 
+# Tasks to do
 
-
-
-## Misc changes
-* misc(cursor-vim): map Ctrl-O to jump to location
-
-## Minor or undecided changes
-* change wording from Game to Simulation
+## New Simulation Menu updates
 * rework the New Simulation menu
+* change wording to Max Entity Size, Play Area Size, Max Entity Speed, 
+* add toggle: Line of Sight display
 * Introduce Entity profiles - that holds all available options for an entity
 * User can create, modify, save and load entity profiles (json)
 * Game config menu to have 2 section: general settings and entity settings
 * General settings to have sim speed, display trail, etc. settings.
 * Entity setting: Add new entity from scratch
-To be continued 
 
-## Play area
+## Simulation Options menu updates
+* Display options (Speed trail, Line of Sight display)
+
+## Log updates
+
+## Save / load updates
+
+## Play area updates
 * follow selected entity if it leaves visible play area
+* resize play area viewport, adjusting zoom level accordingly
+
+## Entitiy list updates
+
+## Footer updates
+
+## Minor or undecided changes
+
+## Misc changes, not directly related to gameplay
+* misc(cursor-vim): map Ctrl-O to jump to location
 
 # Future plans
 
 ## Entity properties that determine their actions
-- HP - collision reaction, can be devoured or destroyed if higher hp
-- Speed - max speed
-- Energy - determines max speed
-- Recovery - to recover energy
-- Flee / Catch - speed up towards / from enemy
+* feat: velocity - entities can change their speed. 
+* HP - collision reaction, can be devoured or destroyed if higher hp
+* Speed - max speed
+* Energy - determines max speed
+* Recovery - to recover energy
+* Flee / Catch - speed up towards / from enemy
 
-## Rewind 
-Everything can be replayed or tick reverted.
+## Rewind simulation
+* Everything can be replayed or tick reverted.
 
 ## Behaviours
 
@@ -42,13 +57,15 @@ Everything can be replayed or tick reverted.
 * Add Behaviour: Change Reaction \[Reaction]
 * Add Behaviour: Change Speed \[Speed]
 
-## Tick sequence
+## Tick sequence refactor
 
 1. Vision - line of sight in direction
 2. Decision - select behaviour
 3. Action - execute behaviour
 
-## Player character
+* document
+
+## Controllable Player character
 
 * Create a 1x1 character
 * It can be moved by cursor keys or keypad
@@ -61,5 +78,4 @@ Everything can be replayed or tick reverted.
 * Separate javascript, html and css files
 
 ## Deploy
-
 * Deploy to github.io
